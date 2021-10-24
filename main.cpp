@@ -1,6 +1,12 @@
 #include <GL/gl.h>
 #include <GL/glut.h>
-GLfloat angle = 0.0;
+#include <string>
+#include <iostream>
+#include <iomanip>
+
+GLfloat objAngle = 0.0;
+GLint camAngle = 0;
+GLfloat resolution = 360.0/1024.0;
 
 GLfloat redDiffuseMaterial[] = {1.0, 0.0, 0.0}; //set the material to red
 GLfloat whiteSpecularMaterial[] = {1.0, 1.0, 1.0}; //set the material to white
@@ -27,6 +33,18 @@ void light (void) {
     glLightfv(GL_LIGHT0, GL_DIFFUSE, whiteDiffuseLight);
 }
 
+void print_bytes(std::ostream& out, const char *title, const unsigned char *data, size_t dataLen, bool format = true) {
+    out << title << std::endl;
+    out << std::setfill('0');
+    for(size_t i = 0; i < dataLen; ++i) {
+        out << std::hex << std::setw(2) << (int)data[i];
+        if (format) {
+            out << (((i + 1) % 16 == 0) ? "\n" : " ");
+        }
+    }
+    out << std::endl;
+}
+
 void display (void) {
     glClearColor (0.0,0.0,0.0,1.0);
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -34,19 +52,41 @@ void display (void) {
     light();
     glTranslatef(0,0,-5);
     
-    glRotatef(angle,1,1,1);
+    //glRotatef(10,1,0,0);
+    if(camAngle == 1024){
+        glRotatef(objAngle,0,1,0);
+        objAngle ++;
+        camAngle = 0;
+        std::cout << "frame";
+    }
+    glRotatef(camAngle*resolution,0,0,1);
+    //std::cout << camAngle << " ";
+    camAngle ++;
     
     glutSolidTeapot(2);
     glutSwapBuffers();
-    angle ++;
+    
+    GLubyte *data = (GLubyte*)malloc(3 * 128);
+    glReadBuffer(GL_BACK);
+    glReadPixels(0,0,128,1, GL_RGB, GL_UNSIGNED_BYTE, data);
+    
+    //print_bytes(std::cout, "frame", data, 3 * 128);
+    
+    
 }
 
 void reshape (int w, int h) {
-    glViewport (0, 0, (GLsizei)w, (GLsizei)h);
+    glViewport (0, 0, (GLsizei)128, (GLsizei)1);
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity ();
-    gluPerspective (60, (GLfloat)w / (GLfloat)h, 1.0, 100.0);
+    gluPerspective (1, (GLfloat)128 / (GLfloat)1, 1.0, 100.0);
     glMatrixMode (GL_MODELVIEW);
+    
+    //glViewport (0, 0, (GLsizei)w, (GLsizei)h);
+    //glMatrixMode (GL_PROJECTION);
+    //glLoadIdentity ();
+    //gluPerspective (60, (GLfloat)w / (GLfloat)h, 1.0, 100.0);
+    //glMatrixMode (GL_MODELVIEW);
 }
 
 void keyboard (unsigned char key, int x, int y) {
@@ -102,7 +142,7 @@ greenEmissiveMaterial);
 int main (int argc, char **argv) {
     glutInit (&argc, argv);
     glutInitDisplayMode (GLUT_DOUBLE | GLUT_DEPTH);
-    glutInitWindowSize (500, 500);
+    glutInitWindowSize (128, 1);
     glutInitWindowPosition (100, 100);
     glutCreateWindow ("A basic OpenGL Window");
     init ();
@@ -110,6 +150,13 @@ int main (int argc, char **argv) {
     glutIdleFunc (display);
     glutKeyboardFunc (keyboard);
     glutReshapeFunc (reshape);
+    
+    glViewport (0, 0, (GLsizei)128, (GLsizei)1);
+    glMatrixMode (GL_PROJECTION);
+    glLoadIdentity ();
+    gluPerspective (1, (GLfloat)128 / (GLfloat)1, 1.0, 100.0);
+    glMatrixMode (GL_MODELVIEW);
+    
     glutMainLoop ();
     return 0;
 }
