@@ -7,8 +7,11 @@
 #include <iostream>
 #include <iomanip>
 
+#include <chrono>
+using namespace std::chrono;
+
 GLfloat objAngle = 0.0;
-GLint lines = 100;
+GLint lines = 300;
 GLfloat resolution = 360.0/lines;
 bool isShown = false;
 
@@ -17,6 +20,8 @@ float elevation = 3;
 
 glm::vec3 modelPosition = glm::vec3(0.0);
 glm::vec3 cameraPosition = glm::vec3(0.0,3.0,10.0);
+
+GLubyte *data = (GLubyte*)malloc(3 * 128);
 
 GLfloat redDiffuseMaterial[] = {1.0, 0.0, 0.0}; //set the material to red
 GLfloat whiteSpecularMaterial[] = {1.0, 1.0, 1.0}; //set the material to white
@@ -56,7 +61,8 @@ void print_bytes(std::ostream& out, const char *title, const unsigned char *data
 }
 
 void display (void) {
-    glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    auto start = high_resolution_clock::now();
+    //glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //glClear (GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
     light();
@@ -72,23 +78,25 @@ void display (void) {
     glm::vec3 rotation_axis = modelPosition-cameraPosition;
 
     for(int camAngle = 0; camAngle < lines; camAngle++){
-        glClear (GL_COLOR_BUFFER_BIT );
+        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         glRotatef(resolution, rotation_axis.x, rotation_axis.y, rotation_axis.z);
         //std::cout << camAngle << " ";
         
-        glutSolidTeapot(2);
+        glutSolidCube(2);
         if(isShown){
             glutSwapBuffers();
         }
         
-        GLubyte *data = (GLubyte*)malloc(3 * 128);
         glReadBuffer(GL_BACK);
         glReadPixels(0,0,128,1, GL_RGB, GL_UNSIGNED_BYTE, data);
-        
-        //print_bytes(std::cout, "frame", data, 3 * 128);
     }
-    std::cout << "frame" << std::flush;
+    print_bytes(std::cout, "frame", data, 3 * 128);
+    
+    auto stop = high_resolution_clock::now();
+    auto diff = stop - start;
+    
+    std::cout << "frame " << 1000000000.0/((float)(diff.count())) << "\n" << std::flush;
 }
 
 void reshape (int w, int h) {
