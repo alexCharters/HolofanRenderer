@@ -8,7 +8,7 @@
 #include <iomanip>
 
 GLfloat objAngle = 0.0;
-GLint lines = 1024;
+GLint lines = 100;
 GLfloat resolution = 360.0/lines;
 bool isShown = false;
 
@@ -32,14 +32,14 @@ bool emissive = false;
 bool specular = false;
 
 void init (void) {
-    //glEnable (GL_DEPTH_TEST);
+    glEnable (GL_DEPTH_TEST);
     glEnable (GL_LIGHTING);
     glEnable (GL_LIGHT0);
 }
 
 void light (void) {
-    //glLightfv(GL_LIGHT0, GL_SPECULAR, whiteSpecularLight);
-    //glLightfv(GL_LIGHT0, GL_AMBIENT, blackAmbientLight);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, whiteSpecularLight);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, blackAmbientLight);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, whiteDiffuseLight);
 }
 
@@ -56,8 +56,8 @@ void print_bytes(std::ostream& out, const char *title, const unsigned char *data
 }
 
 void display (void) {
-    //glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClear (GL_COLOR_BUFFER_BIT);
+    glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //glClear (GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
     light();
     //glTranslatef(0,0,0);
@@ -77,7 +77,7 @@ void display (void) {
         glRotatef(resolution, rotation_axis.x, rotation_axis.y, rotation_axis.z);
         //std::cout << camAngle << " ";
         
-        glutSolidCube(2);
+        glutSolidTeapot(2);
         if(isShown){
             glutSwapBuffers();
         }
@@ -108,59 +108,59 @@ void reshape (int w, int h) {
     }
 }
 
-//void keyboard (unsigned char key, int x, int y) {
-    //if (key=='s')
-    //{
-        //if (specular==false)
-        //{
-            //specular = true;
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, 
-//whiteSpecularMaterial);
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
-        //}
-        //else if (specular==true)
-        //{
-            //specular = false;
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, blankMaterial);
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, 
-//blankMaterial);
-        //}
-    //}
+void keyboard (unsigned char key, int x, int y) {
+    if (key=='s')
+    {
+        if (specular==false)
+        {
+            specular = true;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, 
+whiteSpecularMaterial);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
+        }
+        else if (specular==true)
+        {
+            specular = false;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, blankMaterial);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, 
+blankMaterial);
+        }
+    }
     
-    //if (key=='d')
-    //{
-        //if (diffuse==false)
-        //{
-            //diffuse = true;
+    if (key=='d')
+    {
+        if (diffuse==false)
+        {
+            diffuse = true;
             
-        //}
-        //else if (diffuse==true)
-        //{
-            //diffuse = false;
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, blankMaterial);
-        //}
-    //}
+        }
+        else if (diffuse==true)
+        {
+            diffuse = false;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, blankMaterial);
+        }
+    }
     
-    //if (key=='e')
-    //{
-        //if (emissive==false)
-        //{
-            //emissive = true;
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, 
-//greenEmissiveMaterial);
-        //}
-        //else if (emissive==true)
-        //{
-            //emissive = false;
-            //glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, blankMaterial);
-        //}
-    //}
-//}
+    if (key=='e')
+    {
+        if (emissive==false)
+        {
+            emissive = true;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, 
+greenEmissiveMaterial);
+        }
+        else if (emissive==true)
+        {
+            emissive = false;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, blankMaterial);
+        }
+    }
+}
 
 int main (int argc, char **argv) {
     if(argc != 2){
         glutInit (&argc, argv);
-        glutInitDisplayMode (GLUT_DOUBLE | GLUT_DEPTH);
+        glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
         glutInitWindowSize (128, 1);
         glutCreateWindow ("A basic OpenGL Window");
         init ();
@@ -168,7 +168,6 @@ int main (int argc, char **argv) {
         glutIdleFunc (display);
         //glutKeyboardFunc (keyboard);
         glutReshapeFunc (reshape);
-        glClearColor (0.0,0.0,0.0,1.0);
         
         
         //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
@@ -181,7 +180,7 @@ int main (int argc, char **argv) {
     else if(std::strcmp(argv[1], "show") == 0){
         isShown = true;
         glutInit (&argc, argv);
-        glutInitDisplayMode (GLUT_DOUBLE | GLUT_DEPTH);
+        glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
         glutInitWindowSize (500, 500);
         glutCreateWindow ("A basic OpenGL Window");
         init ();
@@ -189,7 +188,6 @@ int main (int argc, char **argv) {
         glutIdleFunc (display);
         //glutKeyboardFunc (keyboard);
         glutReshapeFunc (reshape);
-        glClearColor (0.0,0.0,0.0,1.0);
         
         
         //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
