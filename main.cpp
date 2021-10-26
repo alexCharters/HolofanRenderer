@@ -21,6 +21,7 @@ float elevation = 3;
 glm::vec3 modelPosition = glm::vec3(0.0);
 glm::vec3 cameraPosition = glm::vec3(0.0,3.0,10.0);
 
+GLubyte *frame = (GLubyte*)malloc(3 * 128 * lines);
 GLubyte *data = (GLubyte*)malloc(3 * 128);
 
 GLfloat redDiffuseMaterial[] = {1.0, 0.0, 0.0}; //set the material to red
@@ -62,26 +63,20 @@ void print_bytes(std::ostream& out, const char *title, const unsigned char *data
 
 void display (void) {
     auto start = high_resolution_clock::now();
-    //glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glClear (GL_COLOR_BUFFER_BIT);
+
     glLoadIdentity();
     light();
-    //glTranslatef(0,0,0);
-    
-    //glRotatef(10,1,0,0);
 
-    //glRotatef(objAngle,0,1,0);
     cameraPosition = glm::rotateY(cameraPosition, glm::radians(1.0f));	
     objAngle ++;
     gluLookAt(cameraPosition.x,cameraPosition.y,cameraPosition.z,modelPosition.x,modelPosition.y,modelPosition.z,0,1,0);
     
     glm::vec3 rotation_axis = modelPosition-cameraPosition;
 
-    for(int camAngle = 0; camAngle < lines; camAngle++){
+    for(int i = 0; i < lines; i++){
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         glRotatef(resolution, rotation_axis.x, rotation_axis.y, rotation_axis.z);
-        //std::cout << camAngle << " ";
         
         glutSolidCube(2);
         if(isShown){
@@ -89,9 +84,9 @@ void display (void) {
         }
         
         glReadBuffer(GL_BACK);
-        glReadPixels(0,0,128,1, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glReadPixels(0,0,128,1, GL_RGB, GL_UNSIGNED_BYTE, &frame[i * 3 * 128]);
     }
-    print_bytes(std::cout, "frame", data, 3 * 128);
+    print_bytes(std::cout, "frame", frame, 3 * 128 * lines);
     
     auto stop = high_resolution_clock::now();
     auto diff = stop - start;
