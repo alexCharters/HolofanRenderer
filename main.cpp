@@ -1,3 +1,4 @@
+#include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glut.h>
 #include <glm/glm.hpp>
@@ -37,10 +38,105 @@ bool diffuse = false;
 bool emissive = false;
 bool specular = false;
 
+GLfloat vertices[]  = {
+     .5f, .5f, .5f,  -.5f, .5f, .5f,  -.5f,-.5f, .5f,  .5f,-.5f, .5f, // v0,v1,v2,v3 (front)
+     .5f, .5f, .5f,   .5f,-.5f, .5f,   .5f,-.5f,-.5f,  .5f, .5f,-.5f, // v0,v3,v4,v5 (right)
+     .5f, .5f, .5f,   .5f, .5f,-.5f,  -.5f, .5f,-.5f, -.5f, .5f, .5f, // v0,v5,v6,v1 (top)
+    -.5f, .5f, .5f,  -.5f, .5f,-.5f,  -.5f,-.5f,-.5f, -.5f,-.5f, .5f, // v1,v6,v7,v2 (left)
+    -.5f,-.5f,-.5f,   .5f,-.5f,-.5f,   .5f,-.5f, .5f, -.5f,-.5f, .5f, // v7,v4,v3,v2 (bottom)
+     .5f,-.5f,-.5f,  -.5f,-.5f,-.5f,  -.5f, .5f,-.5f,  .5f, .5f,-.5f  // v4,v7,v6,v5 (back)
+};
+
+// normal array
+GLfloat normals[] = {
+     0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,  // v0,v1,v2,v3 (front)
+     1, 0, 0,   1, 0, 0,   1, 0, 0,   1, 0, 0,  // v0,v3,v4,v5 (right)
+     0, 1, 0,   0, 1, 0,   0, 1, 0,   0, 1, 0,  // v0,v5,v6,v1 (top)
+    -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  // v1,v6,v7,v2 (left)
+     0,-1, 0,   0,-1, 0,   0,-1, 0,   0,-1, 0,  // v7,v4,v3,v2 (bottom)
+     0, 0,-1,   0, 0,-1,   0, 0,-1,   0, 0,-1   // v4,v7,v6,v5 (back)
+};
+
+// colour array
+GLfloat colors[] = {
+     1, 1, 1,   1, 1, 0,   1, 0, 0,   1, 0, 1,  // v0,v1,v2,v3 (front)
+     1, 1, 1,   1, 0, 1,   0, 0, 1,   0, 1, 1,  // v0,v3,v4,v5 (right)
+     1, 1, 1,   0, 1, 1,   0, 1, 0,   1, 1, 0,  // v0,v5,v6,v1 (top)
+     1, 1, 0,   0, 1, 0,   0, 0, 0,   1, 0, 0,  // v1,v6,v7,v2 (left)
+     0, 0, 0,   0, 0, 1,   1, 0, 1,   1, 0, 0,  // v7,v4,v3,v2 (bottom)
+     0, 0, 1,   0, 0, 0,   0, 1, 0,   0, 1, 1   // v4,v7,v6,v5 (back)
+};
+
+// texture coord array
+GLfloat texCoords[] = {
+    1, 0,   0, 0,   0, 1,   1, 1,               // v0,v1,v2,v3 (front)
+    0, 0,   0, 1,   1, 1,   1, 0,               // v0,v3,v4,v5 (right)
+    1, 1,   1, 0,   0, 0,   0, 1,               // v0,v5,v6,v1 (top)
+    1, 0,   0, 0,   0, 1,   1, 1,               // v1,v6,v7,v2 (left)
+    0, 1,   1, 1,   1, 0,   0, 0,               // v7,v4,v3,v2 (bottom)
+    0, 1,   1, 1,   1, 0,   0, 0                // v4,v7,v6,v5 (back)
+};
+
+// index array for glDrawElements()
+// A cube requires 36 indices = 6 sides * 2 tris * 3 verts
+GLuint indices[] = {
+     0, 1, 2,   2, 3, 0,    // v0-v1-v2, v2-v3-v0 (front)
+     4, 5, 6,   6, 7, 4,    // v0-v3-v4, v4-v5-v0 (right)
+     8, 9,10,  10,11, 8,    // v0-v5-v6, v6-v1-v0 (top)
+    12,13,14,  14,15,12,    // v1-v6-v7, v7-v2-v1 (left)
+    16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
+    20,21,22,  22,23,20     // v4-v7-v6, v6-v5-v4 (back)
+};
+
+
 void init (void) {
+    GLenum err = glewInit();
+    if (GLEW_OK != err)
+    {
+      /* Problem: glewInit failed, something is seriously wrong. */
+      fprintf(stderr, "Oh fug das bad: %s\n", glewGetErrorString(err));
+    }
+    fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+    
     glEnable (GL_DEPTH_TEST);
     glEnable (GL_LIGHTING);
     glEnable (GL_LIGHT0);
+}
+
+static unsigned int CompileShader(unsigned int type, const std::string& source){
+    unsigned int id = glCreateShader(type);
+    const char* src = source.c_str();
+    glShaderSource(id, 1, &src, nullptr);
+    glCompileShader(id);
+    
+    int result;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &result);
+    if (!result){
+        int length;
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
+        char* message = (char*)alloca(length * sizeof(char));
+        glGetShaderInfoLog(id, length, &length, message);
+        std::cout << message << std::endl;
+        glDeleteShader(id);
+        return 0;
+    }
+    
+    return id;
+}
+
+static unsigned int CreateShader(const std::string& vertexShader, const std::string& fragmentShader){
+    unsigned int program = glCreateProgram();
+    unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
+    unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
+    
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    glLinkProgram(program);
+    glValidateProgram(program);
+    
+    glDeleteShader(fs);
+    
+    return program;
 }
 
 void light (void) {
@@ -62,36 +158,87 @@ void print_bytes(std::ostream& out, const char *title, const unsigned char *data
 }
 
 void display (void) {
-    auto start = high_resolution_clock::now();
-
-    glLoadIdentity();
-    light();
-
-    cameraPosition = glm::rotateY(cameraPosition, glm::radians(1.0f));	
-    objAngle ++;
-    gluLookAt(cameraPosition.x,cameraPosition.y,cameraPosition.z,modelPosition.x,modelPosition.y,modelPosition.z,0,1,0);
+    GLuint vboId;
+    GLuint iboId;
     
-    glm::vec3 rotation_axis = modelPosition-cameraPosition;
+    // create VBOs
+    glGenBuffers(1, &vboId);    // for vertex buffer
+    glGenBuffers(1, &iboId);    // for index buffer
+    
+    size_t vSize = sizeof vertices;
+    size_t nSize = sizeof normals;
+    size_t cSize = sizeof colors;
+    size_t tSize = sizeof texCoords;
+    
+    glBindBuffer(GL_ARRAY_BUFFER, vboId);
+    glBufferData(GL_ARRAY_BUFFER, vSize+nSize+cSize+tSize, 0, GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vSize, vertices);                  // copy verts at offset 0
+    glBufferSubData(GL_ARRAY_BUFFER, vSize, nSize, normals);               // copy norms after verts
+    glBufferSubData(GL_ARRAY_BUFFER, vSize+nSize, cSize, colors);          // copy cols after norms
+    glBufferSubData(GL_ARRAY_BUFFER, vSize+nSize+cSize, tSize, texCoords); // copy texs after cols
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    for(int i = 0; i < lines; i++){
-        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        glRotatef(resolution, rotation_axis.x, rotation_axis.y, rotation_axis.z);
-        
-        glutSolidCube(2);
-        if(isShown){
-            glutSwapBuffers();
-        }
-        
-        glReadBuffer(GL_BACK);
-        glReadPixels(0,0,128,1, GL_RGB, GL_UNSIGNED_BYTE, &frame[i * 3 * 128]);
-    }
-    print_bytes(std::cout, "frame", frame, 3 * 128 * lines);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboId);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     
-    auto stop = high_resolution_clock::now();
-    auto diff = stop - start;
+    // bind VBOs before drawing
+    glBindBuffer(GL_ARRAY_BUFFER, vboId);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboId);
     
-    std::cout << "frame " << 1000000000.0/((float)(diff.count())) << "\n" << std::flush;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    
+    size_t nOffset = sizeof vertices;
+    size_t cOffset = nOffset + sizeof normals;
+    size_t tOffset = cOffset + sizeof colors;
+    
+    // specify vertex arrays with their offsets
+    glVertexPointer(3, GL_FLOAT, 0, (void*)0);
+    glNormalPointer(GL_FLOAT, 0, (void*)nOffset);
+    glColorPointer(3, GL_FLOAT, 0, (void*)cOffset);
+    glTexCoordPointer(2, GL_FLOAT, 0, (void*)tOffset);
+    
+        // finally draw a cube with glDrawElements()
+    glDrawElements(GL_TRIANGLES,            // primitive type
+                   36,                      // # of indices
+                   GL_UNSIGNED_INT,         // data type
+                   (void*)0);               // offset to indices
+
+    // disable vertex arrays
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    // unbind VBOs
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+    
+    //auto start = high_resolution_clock::now();
+
+    //glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //glLoadIdentity();
+    //light();
+
+    //cameraPosition = glm::rotateY(cameraPosition, glm::radians(1.0f));	
+    //objAngle ++;
+    //gluLookAt(cameraPosition.x,cameraPosition.y,cameraPosition.z,modelPosition.x,modelPosition.y,modelPosition.z,0,1,0);
+    
+    //glm::vec3 rotation_axis = modelPosition-cameraPosition;
+
+    //glutSolidCube(2);
+    //glutSwapBuffers();
+
+    ////print_bytes(std::cout, "frame", frame, 3 * 128 * lines);
+    
+    //auto stop = high_resolution_clock::now();
+    //auto diff = stop - start;
+    
+    //std::cout << "frame " << 1000000000.0/((float)(diff.count())) << "\n" << std::flush;
 }
 
 void reshape (int w, int h) {
@@ -192,10 +339,35 @@ int main (int argc, char **argv) {
         //glutKeyboardFunc (keyboard);
         glutReshapeFunc (reshape);
         
-        
         //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
         //glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
         //glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, redDiffuseMaterial);
+        
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
+        
+        std::string vertexShader = 
+        "#version 120 core\n"
+        "layout(location = 0) out vec4 color;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "   color = vec4(1.0, 0.0, 0.0, 1.0);\n"
+        "}\n";
+
+        std::string fragmentShader = 
+        "#version 120 core\n"
+        "layout(location = 0) in vec4 position;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "   gl_position = position;\n"
+        "}\n";
+        
+        unsigned int shader = CreateShader(vertexShader, fragmentShader);
+        glUseProgram(shader);
+        
+        std::cout << glGetString(GL_VERSION) << std::endl;
         
         glutMainLoop ();
         return 0;
