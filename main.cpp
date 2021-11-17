@@ -8,6 +8,9 @@
 #include <iostream>
 #include <math.h>   // fabs
 
+#include <chrono>
+using namespace std::chrono;
+
 
 static double zoom = .01;
 static int width = 0;
@@ -39,6 +42,8 @@ GLuint VERTEX_ATTR_COLOR = 2;
 
 const int winWidth = 500;
 const int winHeight = 500;
+
+uint outBuffer[128*512*3];
 
 const int nCoordsComponents = 3;
 const int nColorComponents = 3;
@@ -173,12 +178,12 @@ float n[nFaces*nVerticesPerFace*nCoordsComponents];
 
 //============================================================================
 
-float planeVertices[] = { -0.5, 0.5,
-               0.5, 0.5,
-               -0.5, -0.5,
-               -0.5, -0.5,
-               0.5, -0.5,
-               0.5, 0.5};
+float planeVertices[] = { -1, 1,
+               1, 1,
+               -1, -1,
+               -1, -1,
+               1, -1,
+               1, 1};
 
 
 // ===========================================================================
@@ -328,16 +333,23 @@ const char* tex_vertex_shader =
     "attribute vec2 aCoords;"
     "varying vec2 texCoords;"
     "void main () {"
-        "gl_Position = vec4(aCoords, 0.0, 1.0);"
-	"texCoords = aCoords + 0.5;"
+    "gl_Position = vec4(aCoords, 0.0, 1.0);"
+	"texCoords = aCoords / vec2(2) + 0.5;"
     "}";
 
 const char* tex_fragment_shader =
     "varying vec2 texCoords;"
-    
+    "float r;"
+    "float theta;"
+    "float x;"
+    "float y;"
     "uniform sampler2D ourTexture;"
     "void main () {"
-        "gl_FragColor = vec4(texture2D(ourTexture, texCoords).rgb + 0.2, 1.0);"
+        "r = (gl_FragCoord.x-64.0)/128.0;"
+        "theta = gl_FragCoord.y * (2.0*3.1415926535897932384626433832795/float(512));"
+        "x = r * cos(theta);"
+        "y = r * sin(theta);"
+        "gl_FragColor = vec4(texture2D(ourTexture, vec2(x+0.5, y+0.5)).rgb, 1.0);"
     "}";
 
 // ---------------------------------------------------------------------------
@@ -513,7 +525,6 @@ static void drawShaderWithVertexArrayObject()
 // ---------------------------------------------------------------------------
 static void drawShaderWithVertexBufferObject()
 {
-    std::cout<<originalFramebuffer<<" "<<framebuffer<<"\n"; 
     initShaders();
 
     // Get the variables from the shader to which data will be passed
@@ -524,16 +535,34 @@ static void drawShaderWithVertexBufferObject()
 
     // Pass the model-view matrix to the shader
     GLfloat mvMat[16]; 
-    glGetFloatv(GL_MODELVIEW_MATRIX, mvMat); 
+    glGetFloatv(GL_MODELVIEW_MATRIX, mvMat);
+    
+    //int i;
+    //for(i = 0; i < 16; i++){
+        //std::cout<<mvMat[i]<<" ";
+        //if((i+1)%4==0){
+            //std::cout<<"\n";
+        //}
+    //}
+    //std::cout<<"\n";
+    
     glUniformMatrix4fv(mvloc, 1, false, mvMat);
 
     // Pass the projection matrix to the shader
     GLfloat pMat[16]; 
-    glGetFloatv(GL_PROJECTION_MATRIX, pMat); 
+    glGetFloatv(GL_PROJECTION_MATRIX, pMat);
+    //for(i = 0; i < 16; i++){
+        //std::cout<<pMat[i]<<" ";
+        //if((i+1)%4==0){
+            //std::cout<<"\n";
+        //}
+    //}
+    //std::cout<<"\n"; 
     glUniformMatrix4fv(ploc, 1, false, pMat);
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glViewport(0,0,500,500);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     vboIds = new GLuint[4];
@@ -598,7 +627,18 @@ static void drawShaderWithVertexBufferObject()
     glVertexAttribPointer(texVertexAttribCoords, 2, GL_FLOAT, GL_FALSE, 0, 0);
     
     glDrawArrays(GL_TRIANGLES, 0, 6);
-
+    
+    glReadPixels(0, 0, 128, 512, GL_RGB, GL_UNSIGNED_BYTE, outBuffer);
+    
+    //int i;
+    //for(i = 0; i < 128*3*512; i++){
+        //std::cout<<outBuffer[i];
+        //if((i+1)%(128*3)==0){
+            //std::cout<<"\n";
+        //}
+    //}
+    //std::cout<<"\n\n";
+    
     glDisableVertexAttribArray(texVertexAttribCoords);
 }
 
@@ -732,6 +772,7 @@ static void drawImmediate()
 // ---------------------------------------------------------------------------
 static void onDraw(void)
 {
+    steady_clock::time_point begin = steady_clock::now();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear Screen And Depth Buffer
 
     glMatrixMode(GL_PROJECTION);
@@ -755,6 +796,9 @@ static void onDraw(void)
     //std::cout<<"\n";
 
     glutSwapBuffers();
+    steady_clock::time_point end = steady_clock::now();
+    std::cout << "Time difference = " <<duration_cast<nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+    std::cout << "fps = " <<1000000000/(duration_cast<nanoseconds> (end - begin).count()) << "[fps]" << std::endl;
 }
 
 void init (void) {
@@ -796,6 +840,7 @@ void init (void) {
         std::cout<<"ERROR: Framebuffer not configured correctly.\n";
     }
 
+    glReadBuffer(GL_FRONT);
 
     //glEnable (GL_DEPTH_TEST);
     //glEnable (GL_LIGHTING);
