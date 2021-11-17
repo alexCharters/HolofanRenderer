@@ -1,95 +1,765 @@
 #include <GL/glew.h>
+#include "GL/freeglut.h"
 #include <GL/gl.h>
 #include <GL/glut.h>
-#include <glm/glm.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-#include <string>
-#include <cstring>
+
+#include <vector>
+#include <stdio.h>
 #include <iostream>
-#include <iomanip>
+#include <math.h>   // fabs
 
-#include <chrono>
-using namespace std::chrono;
 
-GLfloat objAngle = 0.0;
-GLint lines = 300;
-GLfloat resolution = 360.0/lines;
-bool isShown = false;
+static double zoom = .01;
+static int width = 0;
+static int height = 0;
+static float tx=0, ty=0;
+static float thetax=0, thetay=0, thetaz=0;
 
-float distance = 10;
-float elevation = 3;
-
-glm::vec3 modelPosition = glm::vec3(0.0);
-glm::vec3 cameraPosition = glm::vec3(0.0,3.0,10.0);
-
-GLubyte *frame = (GLubyte*)malloc(3 * 128 * lines);
-GLubyte *data = (GLubyte*)malloc(3 * 128);
-
-GLfloat redDiffuseMaterial[] = {1.0, 0.0, 0.0}; //set the material to red
-GLfloat whiteSpecularMaterial[] = {1.0, 1.0, 1.0}; //set the material to white
-GLfloat greenEmissiveMaterial[] = {0.0, 1.0, 0.0}; //set the material to green
-GLfloat whiteSpecularLight[] = {1.0, 1.0, 1.0}; //set the light specular to white
-GLfloat blackAmbientLight[] = {0.0, 0.0, 0.0}; //set the light ambient to black
-GLfloat whiteDiffuseLight[] = {1.0, 1.0, 1.0}; //set the diffuse light to white
-GLfloat blankMaterial[] = {0.0, 0.0, 0.0}; //set the diffuse light to white
-GLfloat mShininess[] = {128}; //set the shininess of the material
-
-bool diffuse = false;
-bool emissive = false;
-bool specular = false;
-
-GLfloat vertices[]  = {
-     .5f, .5f, .5f,  -.5f, .5f, .5f,  -.5f,-.5f, .5f,  .5f,-.5f, .5f, // v0,v1,v2,v3 (front)
-     .5f, .5f, .5f,   .5f,-.5f, .5f,   .5f,-.5f,-.5f,  .5f, .5f,-.5f, // v0,v3,v4,v5 (right)
-     .5f, .5f, .5f,   .5f, .5f,-.5f,  -.5f, .5f,-.5f, -.5f, .5f, .5f, // v0,v5,v6,v1 (top)
-    -.5f, .5f, .5f,  -.5f, .5f,-.5f,  -.5f,-.5f,-.5f, -.5f,-.5f, .5f, // v1,v6,v7,v2 (left)
-    -.5f,-.5f,-.5f,   .5f,-.5f,-.5f,   .5f,-.5f, .5f, -.5f,-.5f, .5f, // v7,v4,v3,v2 (bottom)
-     .5f,-.5f,-.5f,  -.5f,-.5f,-.5f,  -.5f, .5f,-.5f,  .5f, .5f,-.5f  // v4,v7,v6,v5 (back)
+enum DrawType
+{
+    kImmediate,
+    kVertexArray,
+    kVBO,
+    kShaderVBO,
+    kShaderVAO
 };
+DrawType drawType = kImmediate;
 
-// normal array
-GLfloat normals[] = {
-     0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,  // v0,v1,v2,v3 (front)
-     1, 0, 0,   1, 0, 0,   1, 0, 0,   1, 0, 0,  // v0,v3,v4,v5 (right)
-     0, 1, 0,   0, 1, 0,   0, 1, 0,   0, 1, 0,  // v0,v5,v6,v1 (top)
-    -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  -1, 0, 0,  // v1,v6,v7,v2 (left)
-     0,-1, 0,   0,-1, 0,   0,-1, 0,   0,-1, 0,  // v7,v4,v3,v2 (bottom)
-     0, 0,-1,   0, 0,-1,   0, 0,-1,   0, 0,-1   // v4,v7,v6,v5 (back)
-};
+GLuint framebufferTexture;
+GLuint renderbuffer;
+GLuint framebuffer;
+GLuint originalFramebuffer;
 
-// colour array
-GLfloat colors[] = {
-     1, 1, 1,   1, 1, 0,   1, 0, 0,   1, 0, 1,  // v0,v1,v2,v3 (front)
-     1, 1, 1,   1, 0, 1,   0, 0, 1,   0, 1, 1,  // v0,v3,v4,v5 (right)
-     1, 1, 1,   0, 1, 1,   0, 1, 0,   1, 1, 0,  // v0,v5,v6,v1 (top)
-     1, 1, 0,   0, 1, 0,   0, 0, 0,   1, 0, 0,  // v1,v6,v7,v2 (left)
-     0, 0, 0,   0, 0, 1,   1, 0, 1,   1, 0, 0,  // v7,v4,v3,v2 (bottom)
-     0, 0, 1,   0, 0, 0,   0, 1, 0,   0, 1, 1   // v4,v7,v6,v5 (back)
-};
+GLuint* vboIds = NULL;
+GLuint* vaoIds = NULL;
+GLuint phongProgram = 0;
+GLuint texProgram = 0;
+GLuint VERTEX_ATTR_COORDS = 1;
+GLuint VERTEX_ATTR_COLOR = 2;
 
-// texture coord array
-GLfloat texCoords[] = {
-    1, 0,   0, 0,   0, 1,   1, 1,               // v0,v1,v2,v3 (front)
-    0, 0,   0, 1,   1, 1,   1, 0,               // v0,v3,v4,v5 (right)
-    1, 1,   1, 0,   0, 0,   0, 1,               // v0,v5,v6,v1 (top)
-    1, 0,   0, 0,   0, 1,   1, 1,               // v1,v6,v7,v2 (left)
-    0, 1,   1, 1,   1, 0,   0, 0,               // v7,v4,v3,v2 (bottom)
-    0, 1,   1, 1,   1, 0,   0, 0                // v4,v7,v6,v5 (back)
-};
+const int winWidth = 500;
+const int winHeight = 500;
 
-// index array for glDrawElements()
-// A cube requires 36 indices = 6 sides * 2 tris * 3 verts
-GLuint indices[] = {
-     0, 1, 2,   2, 3, 0,    // v0-v1-v2, v2-v3-v0 (front)
-     4, 5, 6,   6, 7, 4,    // v0-v3-v4, v4-v5-v0 (right)
-     8, 9,10,  10,11, 8,    // v0-v5-v6, v6-v1-v0 (top)
-    12,13,14,  14,15,12,    // v1-v6-v7, v7-v2-v1 (left)
-    16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
-    20,21,22,  22,23,20     // v4-v7-v6, v6-v5-v4 (back)
-};
+const int nCoordsComponents = 3;
+const int nColorComponents = 3;
+const int nLines = 3;
+const int nVerticesPerLine = 2;
+const int nFaces = 6;
+const int nVerticesPerFace = 3;
 
+// =========== Axis Data ======================================================
+
+//      Y
+//      |           Z
+//      |         /
+//      |       /
+//      |     /
+//      |   /
+//      | /
+//      /--------------
+//      O              X
+
+
+float av[] = { 0.0, 0.0, 0.0,    // origin
+               2.0, 0.0, 0.0,    // x-axis
+               0.0, 2.0, 0.0,    // y-axis
+               0.0, 0.0, 2.0 };  // z-axis
+
+GLubyte avi[] = { 0, 1,
+                  0, 2,
+                  0, 3 };
+
+float ac[] = { 1.0, 0.0, 0.0,    // red   x-axis
+               0.0, 1.0, 0.0,    // green y-axis
+               0.0, 0.0, 1.0 };  // blue  z-axis
+
+GLubyte aci[] = { 0, 0,
+                  1, 1,
+                  2, 2 };
+
+float ave[nLines*nVerticesPerLine*nCoordsComponents];
+void expandAxesVertices()
+{
+    for (int i=0; i<6; i++)
+    {
+        ave[i*3+0] = av[avi[i]*3+0];
+        ave[i*3+1] = av[avi[i]*3+1];
+        ave[i*3+2] = av[avi[i]*3+2];
+    }
+}
+
+float ace[nLines*nVerticesPerLine*nColorComponents];
+void expandAxesColors()
+{
+    for (int i=0; i<6; i++)
+    {
+        ace[i*3+0] = ac[aci[i]*3+0];
+        ace[i*3+1] = ac[aci[i]*3+1];
+        ace[i*3+2] = ac[aci[i]*3+2];
+    }
+}
+
+// =========== Pyramid Data =================================================
+
+//  (3,4,5)          (6,7,8)
+//     1----------------2
+//     | \            / |
+//     |   \        /   |
+//     |     \    /     |
+//     |        4       | (12,13,14)
+//     |     /    \     |
+//     |   /        \   |
+//     | /            \ |
+//     0 ---------------3
+//  (0,1,2)          (9,10,11)
+
+float pv[] = { 0.5, 0.5, 0.5,    // 0
+               0.5, 1.5, 0.5,    // 1
+               1.5, 1.5, 0.5,    // 2
+               1.5, 0.5, 0.5,    // 3
+               1.0, 1.0, 1.5 };  // 4
+
+GLubyte pvi[] = {0, 1, 2,
+                 2, 3, 0,
+                 0, 3, 4,
+                 3, 2, 4,
+                 2, 1, 4,
+                 1, 0, 4};
+
+float pve[nFaces*nVerticesPerFace*nCoordsComponents];
+void expandPyramidVertices()
+{
+    for (int i=0; i<nFaces; i++)
+    {
+        for (int j=0; j<nVerticesPerFace; j++)
+        {
+            for (int k=0; k<nCoordsComponents; k++)
+            {
+                pve[(i*3+j)*3+k] = pv[pvi[i*3+j]*3+k];
+            }
+        }
+    }
+}
+
+float pc[] = { 0.3f, 0.30f, 0.3f,
+               1.0f, 0.70f, 0.0f,
+               1.0f, 0.62f, 0.0f,
+               1.0f, 0.40f, 0.0f,
+               1.0f, 0.48f, 0.0f};
+
+GLubyte pci[] = { 0, 0, 0,
+                  0, 0, 0,
+                  1, 1, 1,
+                  2, 2, 2,
+                  3, 3, 3,
+                  4, 4, 4 };
+
+float pce[nFaces*nVerticesPerFace*nColorComponents];
+void expandPyramidColors()
+{
+    for (int i=0; i<nFaces; i++)
+    {
+        for (int j=0; j<nVerticesPerFace; j++)
+        {
+            for (int k=0; k<nColorComponents; k++)
+            {
+                pce[(i*3+j)*3+k] = pc[pci[i*3+j]*3+k];
+            }
+        }
+    }
+}
+
+float n[nFaces*nVerticesPerFace*nCoordsComponents];
+
+//============================================================================
+
+float planeVertices[] = { -0.5, 0.5,
+               0.5, 0.5,
+               -0.5, -0.5,
+               -0.5, -0.5,
+               0.5, -0.5,
+               0.5, 0.5};
+
+
+// ===========================================================================
+
+bool double_equal(double a, double b)
+{
+    if (fabs(a-b) < 1e-3)
+        return true;
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+static void displayCommands()
+{
+    printf("----- Key commands -----\n");
+    printf("\n");
+    printf("1           : Immediate\n");
+    printf("2           : Vertex array\n");
+    printf("3           : Vertex Buffer Object (VBO)\n");
+    printf("4           : Shader with Vertex Buffer Object (VBO)\n");
+    printf("5           : Shader with Vertex Array Object (VBO and VAO)\n");
+    printf("\n");
+    printf("+/=         : Zoom in\n");
+    printf("-/_         : Zoom out\n");
+    printf("\n");
+    printf("Left arrow  : Pan left\n");
+    printf("Right arrow : Pan left\n");
+    printf("Up arrow    : Pan left\n");
+    printf("Down arrow  : Pan left\n");
+    printf("\n");
+    printf("X           : Rotate +ve X axis\n");
+    printf("x           : Rotate -ve X axis\n");
+    printf("Y           : Rotate +ve Y axis\n");
+    printf("X           : Rotate +ve Y axis\n");
+    printf("Z           : Rotate +ve Z axis\n");
+    printf("z           : Rotate -ve Z axis\n");
+    printf("\n");
+    printf("SPACE       : Reset view\n");
+    printf("Q/q/ESC     : Quit\n");
+}
+
+// ---------------------------------------------------------------------------
+static void onKeyPressed(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case 27 :
+    case 'Q':
+    case 'q': 
+        glutLeaveMainLoop () ; break;
+
+    case '=':
+    case '+':
+        zoom=zoom-0.001; 
+        if (double_equal(zoom, 0))
+           zoom = 0.001;
+        break;
+    case '-':
+    case '_': 
+        zoom = zoom+0.001;
+        if (double_equal(zoom, 0))
+            zoom = 0.001;
+        break;
+    case ' ':
+        zoom = 0.01;
+        tx=0; ty=0;
+        thetax=0; thetay=0; thetaz=0;
+        break;
+
+    case 'x':
+        thetax -= 10; break;
+    case 'X':
+        thetax += 10; break; 
+    case 'y':
+        thetay -= 10; break;
+    case 'Y':
+        thetay += 10; break;
+    case 'z':
+        thetaz -= 10; break;
+    case 'Z':
+        thetaz += 10; break;
+
+    case '1':
+        drawType = kImmediate; break;
+    case '2':
+        drawType = kVertexArray; break;
+    case '3':
+        drawType = kVBO; break;
+    case '4':
+        drawType = kShaderVBO; break;
+    case '5':
+        drawType = kShaderVAO; break;
+    default:
+        break;
+    }
+
+    glutPostRedisplay();
+}
+
+// ---------------------------------------------------------------------------
+static void onSpecialKeyPressed(int key, int x, int y)
+{
+    switch (key)
+    {
+    case GLUT_KEY_LEFT:     // left arrow
+        tx -=0.25; break;
+    case GLUT_KEY_RIGHT:    // right arrow
+        tx +=0.25; break;
+    case GLUT_KEY_UP:       // up arrow
+        ty +=0.25; break;
+    case GLUT_KEY_DOWN:     // down arrow
+        ty -=0.25; break;
+    }
+
+    glutPostRedisplay();
+}
+
+// ---------------------------------------------------------------------------
+static void onResize(int w, int h)
+{
+    width = w;
+    height = h;
+    glViewport(0, 0, width, height);
+}
+
+// ---------------------------------------------------------------------------
+const char* vertex_shader =
+    "attribute vec3 aCoords;"
+    "attribute vec3 aColor;"
+    "uniform mat4 umvMat;"
+    "uniform mat4 upMat;"
+    "varying vec3 vColor;"
+    "void main () {"
+        "gl_Position = upMat * umvMat * vec4(aCoords, 1.0);"
+        "vColor = aColor;"
+    "}";
+
+const char* fragment_shader =
+    "varying vec3 vColor;"
+    "void main () {"
+        "gl_FragColor = vec4 (vColor, 1.0);"
+    "}";
+    
+    
+    
+const char* tex_vertex_shader =
+    "attribute vec2 aCoords;"
+    "varying vec2 texCoords;"
+    "void main () {"
+        "gl_Position = vec4(aCoords, 0.0, 1.0);"
+	"texCoords = aCoords + 0.5;"
+    "}";
+
+const char* tex_fragment_shader =
+    "varying vec2 texCoords;"
+    
+    "uniform sampler2D ourTexture;"
+    "void main () {"
+        "gl_FragColor = vec4(texture2D(ourTexture, texCoords).rgb + 0.2, 1.0);"
+    "}";
+
+// ---------------------------------------------------------------------------
+static void initShaders()
+{
+    GLuint vs = glCreateShader (GL_VERTEX_SHADER);
+    glShaderSource (vs, 1, &vertex_shader, NULL);
+    glCompileShader (vs);
+
+    GLuint fs = glCreateShader (GL_FRAGMENT_SHADER);
+    glShaderSource (fs, 1, &fragment_shader, NULL);
+    glCompileShader (fs);
+
+    phongProgram = glCreateProgram();
+    glAttachShader (phongProgram, fs);
+    glAttachShader (phongProgram, vs);
+
+    glBindAttribLocation(phongProgram, VERTEX_ATTR_COORDS, "aCoords");
+    glBindAttribLocation(phongProgram, VERTEX_ATTR_COLOR, "aColor");
+
+    glLinkProgram (phongProgram);
+    
+    
+    
+    GLuint texVs = glCreateShader (GL_VERTEX_SHADER);
+    glShaderSource (texVs, 1, &tex_vertex_shader, NULL);
+    glCompileShader (texVs);
+
+    GLuint texFs = glCreateShader (GL_FRAGMENT_SHADER);
+    glShaderSource (texFs, 1, &tex_fragment_shader, NULL);
+    glCompileShader (texFs);
+
+    GLint compileStatus;
+    GLint infoLogLength;
+
+    glGetShaderiv(texVs, GL_COMPILE_STATUS, &compileStatus);
+
+    if (compileStatus == GL_FALSE) {
+        std::cerr << "Unable to compile shader vertex shader:\n";
+
+        glGetShaderiv(texVs, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+        std::vector<char> infoLog(infoLogLength + 1);
+
+        glGetShaderInfoLog(texVs, infoLogLength, nullptr, infoLog.data());
+        infoLog[infoLogLength] = '\0';
+
+        std::cerr << infoLog.data() << "\n";
+    }
+
+    glGetShaderiv(texFs, GL_COMPILE_STATUS, &compileStatus);
+
+    if (compileStatus == GL_FALSE) {
+        std::cerr << "Unable to compile shader fragment shader:\n";
+
+        glGetShaderiv(texFs, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+        std::vector<char> infoLog(infoLogLength + 1);
+
+        glGetShaderInfoLog(texFs, infoLogLength, nullptr, infoLog.data());
+        infoLog[infoLogLength] = '\0';
+
+        std::cerr << infoLog.data() << "\n";
+    }
+
+
+    texProgram = glCreateProgram();
+    glAttachShader (texProgram, texFs);
+    glAttachShader (texProgram, texVs);
+
+    glBindAttribLocation(texProgram, VERTEX_ATTR_COORDS, "aCoords");
+
+    glLinkProgram (texProgram);
+
+    GLint linkStatus;
+
+    glGetProgramiv(texProgram, GL_LINK_STATUS, &linkStatus);
+
+    if (linkStatus == GL_FALSE) {
+        std::cerr << "Unable to link program:\n";
+
+        glGetProgramiv(texProgram, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+        std::vector<char> infoLog(infoLogLength + 1);
+
+        glGetProgramInfoLog(texProgram, infoLogLength, nullptr, infoLog.data());
+        infoLog[infoLogLength] = '\0';
+
+        std::cerr << infoLog.data() << "\n";
+    }
+
+    glUseProgram (phongProgram);
+}
+
+// ---------------------------------------------------------------------------
+static void defineVAO()
+{
+    vaoIds = new GLuint[2];
+    glGenVertexArrays(2, vaoIds);
+
+    vboIds = new GLuint[4];
+    glGenBuffers(4, vboIds);
+
+    GLint vertexAttribCoords = glGetAttribLocation(phongProgram, "aCoords");
+    GLint vertexAttribColor = glGetAttribLocation(phongProgram, "aColor");
+
+    // set current (bind) VAO to define axes data
+    glBindVertexArray(vaoIds[0]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[0]);  // coordinates
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ave), ave, GL_STATIC_DRAW);
+    glVertexAttribPointer(vertexAttribCoords, nCoordsComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(vertexAttribCoords);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[1]);  // color
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ace), ace, GL_STATIC_DRAW);
+    glVertexAttribPointer(vertexAttribColor, nColorComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(vertexAttribColor);
+
+    // Set current (bind) VAO to define pyramid data
+    glBindVertexArray(vaoIds[1]);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[2]);  // coordinates
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pve), pve, GL_STATIC_DRAW);
+    glVertexAttribPointer(vertexAttribCoords, nCoordsComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(vertexAttribCoords);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[3]);  // color
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pce), pce, GL_STATIC_DRAW);
+    glVertexAttribPointer(vertexAttribColor, nColorComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(vertexAttribColor);
+
+    // Disable VAO
+    glBindVertexArray(0);
+}
+
+// ---------------------------------------------------------------------------
+static void drawShaderWithVertexArrayObject()
+{
+    initShaders();
+    defineVAO();
+
+    // Get the variables from the shader to which data will be passed
+    GLint mvloc = glGetUniformLocation(phongProgram, "umvMat");
+    GLint ploc = glGetUniformLocation(phongProgram, "upMat");
+
+    // Pass the model-view matrix to the shader
+    GLfloat mvMat[16]; 
+    glGetFloatv(GL_MODELVIEW_MATRIX, mvMat); 
+    glUniformMatrix4fv(mvloc, 1, false, mvMat);
+
+    // Pass the projection matrix to the shader
+    GLfloat pMat[16]; 
+    glGetFloatv(GL_PROJECTION_MATRIX, pMat); 
+    glUniformMatrix4fv(ploc, 1, false, pMat);
+
+    // Enable VAO to set axes data
+    glBindVertexArray(vaoIds[0]);
+    
+    // Draw axes
+    glDrawArrays(GL_LINES, 0, nLines*nVerticesPerLine);
+
+    // Enable VAO to set pyramid data
+    glBindVertexArray(vaoIds[1]);
+
+    // Draw pyramid
+    glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
+
+    // Disable VAO
+    glBindVertexArray(0);
+}
+
+// ---------------------------------------------------------------------------
+static void drawShaderWithVertexBufferObject()
+{
+    std::cout<<originalFramebuffer<<" "<<framebuffer<<"\n"; 
+    initShaders();
+
+    // Get the variables from the shader to which data will be passed
+    GLint mvloc = glGetUniformLocation(phongProgram, "umvMat");
+    GLint ploc = glGetUniformLocation(phongProgram, "upMat");
+    GLint vertexAttribCoords = glGetAttribLocation(phongProgram, "aCoords");
+    GLint vertexAttribColor = glGetAttribLocation(phongProgram, "aColor");
+
+    // Pass the model-view matrix to the shader
+    GLfloat mvMat[16]; 
+    glGetFloatv(GL_MODELVIEW_MATRIX, mvMat); 
+    glUniformMatrix4fv(mvloc, 1, false, mvMat);
+
+    // Pass the projection matrix to the shader
+    GLfloat pMat[16]; 
+    glGetFloatv(GL_PROJECTION_MATRIX, pMat); 
+    glUniformMatrix4fv(ploc, 1, false, pMat);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    vboIds = new GLuint[4];
+    glGenBuffers(4, vboIds);
+
+    //// Set axes data
+    //glBindBuffer(GL_ARRAY_BUFFER, vboIds[0]);  // coordinates
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(ave), ave, GL_STATIC_DRAW);
+    //glVertexAttribPointer(vertexAttribCoords, nCoordsComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(vertexAttribCoords);
+
+    //glBindBuffer(GL_ARRAY_BUFFER, vboIds[1]);  // color
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(ace), ace, GL_STATIC_DRAW);
+    //glVertexAttribPointer(vertexAttribColor, nColorComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    //glEnableVertexAttribArray(vertexAttribColor);
+
+    //// Draw axes
+    //glDrawArrays(GL_LINES, 0, nLines*nVerticesPerLine);
+
+    // Set pyramid data
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[2]);  // coordinates
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pve), pve, GL_STATIC_DRAW);
+    glVertexAttribPointer(vertexAttribCoords, nCoordsComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(vertexAttribCoords);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[3]);  // color
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pce), pce, GL_STATIC_DRAW);
+    glVertexAttribPointer(vertexAttribColor, nColorComponents, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(vertexAttribColor);
+
+    // Draw pyramid
+    glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
+
+    // Disable the VBO
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    
+    glDisableVertexAttribArray(vertexAttribCoords);
+    glDisableVertexAttribArray(vertexAttribColor);
+
+    glUseProgram(texProgram);
+
+    glLoadIdentity();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+
+    GLint ourTexture = glGetUniformLocation(texProgram, "ourTexture");
+    glUniform1i(ourTexture, 0);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, originalFramebuffer);
+    glViewport(0,0,128,512);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    GLuint vboId;
+    glGenBuffers(1, &vboId);
+
+    GLint texVertexAttribCoords = glGetAttribLocation(texProgram, "aCoords");
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboId);  // coordinates
+    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(texVertexAttribCoords);
+    glVertexAttribPointer(texVertexAttribCoords, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDisableVertexAttribArray(texVertexAttribCoords);
+}
+
+// ---------------------------------------------------------------------------
+static void drawVertexBufferObject()
+{
+
+    vboIds = new GLuint[3];
+    glGenBuffers(3, vboIds);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    // Set axes data
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[0]);  // coordinates
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ave), ave, GL_STATIC_DRAW);
+    glVertexPointer(nCoordsComponents, GL_FLOAT, 0, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[1]);  // color
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ace), ace, GL_STATIC_DRAW);
+    glColorPointer(nColorComponents, GL_FLOAT, 0, 0);
+
+    // Draw axes
+    glDrawArrays(GL_LINES, 0, nLines*nVerticesPerLine);
+
+    // Set pyramid data
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[2]);  // coordinates
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pve), pve, GL_STATIC_DRAW);
+    glVertexPointer(nCoordsComponents, GL_FLOAT, 0, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vboIds[3]);  // color
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pce), pce, GL_STATIC_DRAW);
+    glColorPointer(nColorComponents, GL_FLOAT, 0, 0);
+
+    // Draw pyramid
+    glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+
+    // Disable the VBO
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+// ---------------------------------------------------------------------------
+static void drawVertexArray()
+{
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    // Set axes data
+    glVertexPointer(nCoordsComponents, GL_FLOAT, 0, ave);
+    glColorPointer(nColorComponents, GL_FLOAT, 0, ace);
+
+    // Draw axes
+    glDrawArrays(GL_LINES, 0, nLines*nVerticesPerLine);
+
+    // Set pyramid data
+    glVertexPointer(nCoordsComponents, GL_FLOAT, 0, pve);
+    glColorPointer(nColorComponents, GL_FLOAT, 0, pce);
+
+    // Draw pyramid
+    glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+// ---------------------------------------------------------------------------
+static void drawImmediate()
+{
+    // Draw x-axis in red
+    glColor3d(ac[0], ac[1], ac[2]);
+    glBegin(GL_LINES);
+        glVertex3f(av[0], av[1], av[2]);
+        glVertex3f(av[3], av[4], av[5]);
+    glEnd();
+
+    // Draw y-axis in green
+    glColor3d(ac[3], ac[4], ac[5]);
+    glBegin(GL_LINES);
+        glVertex3f(av[0], av[1], av[2]);
+        glVertex3f(av[6], av[7], av[8]);
+    glEnd();
+
+    // Draw z-axis in blue
+    glColor3d(ac[6], ac[7], ac[8]);
+    glBegin(GL_LINES);
+        glVertex3f(av[0], av[1], av[2]);
+        glVertex3f(av[9], av[10], av[11]);
+    glEnd();
+
+    // Draw pyramid
+    glBegin(GL_TRIANGLES);
+        glColor3d(pc[0], pc[1], pc[2]);
+
+        glVertex3f(pv[0], pv[1], pv[2]);       // 0
+        glVertex3f(pv[3], pv[4], pv[5]);       // 1
+        glVertex3f(pv[6], pv[7], pv[8]);       // 2
+
+        glVertex3f(pv[6], pv[7],  pv[8]);      // 2
+        glVertex3f(pv[9], pv[10], pv[11]);     // 3
+        glVertex3f(pv[0], pv[1],  pv[2]);      // 0
+
+        glColor3f(pc[3], pc[4], pc[5]);
+
+        glVertex3f(pv[0],  pv[1],  pv[2]);     // 0
+        glVertex3f(pv[9],  pv[10], pv[11]);    // 3
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+
+        glColor3f(pc[6], pc[7], pc[8]);
+
+        glVertex3f(pv[9],  pv[10], pv[11]);    // 3
+        glVertex3f(pv[6],  pv[7],  pv[8]);     // 2
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+
+        glColor3f(pc[9], pc[10], pc[11]);
+
+        glVertex3f(pv[6],  pv[7],  pv[8]);     // 2
+        glVertex3f(pv[3],  pv[4],  pv[5]);     // 1
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+
+        glColor3f(pc[12],  pc[13], pc[14]);
+
+        glVertex3f(pv[3],  pv[4],  pv[5]);     // 1
+        glVertex3f(pv[0],  pv[1],  pv[2]);     // 0
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+    glEnd();
+}
+
+// ---------------------------------------------------------------------------
+static void onDraw(void)
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear Screen And Depth Buffer
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho((-width/2)*zoom, (width/2)*zoom, (-height/2)*zoom, (height/2)*zoom, -10, 10);
+
+    gluLookAt(0, 0, 1,  0, 0, 0,  0, 1, 0);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glRotatef(thetax, 1, 0, 0);
+    glRotatef(thetay, 0, 1, 0);
+    glRotatef(thetaz, 0, 0, 1);
+
+    glTranslatef(tx, ty, 0);
+
+    drawShaderWithVertexBufferObject();
+
+    //std::cout<<glGetError();
+    //std::cout<<"\n";
+
+    glutSwapBuffers();
+}
 
 void init (void) {
+    
+	std::cout<<sizeof(planeVertices)<<std::endl;
     GLenum err = glewInit();
     if (GLEW_OK != err)
     {
@@ -97,280 +767,78 @@ void init (void) {
       fprintf(stderr, "Oh fug das bad: %s\n", glewGetErrorString(err));
     }
     fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+   
+    //////////////////////
+    glGenTextures(1, &framebufferTexture);
+    glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, winWidth, winHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     
-    glEnable (GL_DEPTH_TEST);
-    glEnable (GL_LIGHTING);
-    glEnable (GL_LIGHT0);
+    //////////////////////
+    glGenRenderbuffers(1, &renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+    
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, winWidth, winHeight);
+
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, (GLint*)&originalFramebuffer);
+
+    /////////////////////
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTexture, 0);
+    
+    GLenum buffersToDraw[] = {GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(1, buffersToDraw);
+    
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
+        std::cout<<"ERROR: Framebuffer not configured correctly.\n";
+    }
+
+
+    //glEnable (GL_DEPTH_TEST);
+    //glEnable (GL_LIGHTING);
+    //glEnable (GL_LIGHT0);
 }
 
-static unsigned int CompileShader(unsigned int type, const std::string& source){
-    unsigned int id = glCreateShader(type);
-    const char* src = source.c_str();
-    glShaderSource(id, 1, &src, nullptr);
-    glCompileShader(id);
-    
-    int result;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &result);
-    if (!result){
-        int length;
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-        char* message = (char*)alloca(length * sizeof(char));
-        glGetShaderInfoLog(id, length, &length, message);
-        std::cout << message << std::endl;
-        glDeleteShader(id);
-        return 0;
-    }
-    
-    return id;
+static void onIdle(){
+    //glutPostRedisplay();
 }
 
-static unsigned int CreateShader(const std::string& vertexShader, const std::string& fragmentShader){
-    unsigned int program = glCreateProgram();
-    unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
-    unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
-    
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
-    glLinkProgram(program);
-    glValidateProgram(program);
-    
-    glDeleteShader(fs);
-    
-    return program;
-}
+// ---------------------------------------------------------------------------
+int main(int argc, char* argv[])
+{
+    glutInit(&argc, argv);
+    glutInitWindowSize(128,512);
+    glutInitWindowPosition(0,0);
 
-void light (void) {
-    glLightfv(GL_LIGHT0, GL_SPECULAR, whiteSpecularLight);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, blackAmbientLight);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, whiteDiffuseLight);
-}
+    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH | GLUT_MULTISAMPLE);
 
-void print_bytes(std::ostream& out, const char *title, const unsigned char *data, size_t dataLen, bool format = true) {
-    out << title << std::endl;
-    out << std::setfill('0');
-    for(size_t i = 0; i < dataLen; ++i) {
-        out << std::hex << std::setw(2) << (int)data[i];
-        if (format) {
-            out << (((i + 1) % 16 == 0) ? "\n" : " ");
-        }
-    }
-    out << std::endl;
-}
+    glutCreateWindow("Basic OpenGL using FreeGLUT");
+    
+    init();
 
-void display (void) {
-    GLuint vboId;
-    GLuint iboId;
-    
-    // create VBOs
-    glGenBuffers(1, &vboId);    // for vertex buffer
-    glGenBuffers(1, &iboId);    // for index buffer
-    
-    size_t vSize = sizeof vertices;
-    size_t nSize = sizeof normals;
-    size_t cSize = sizeof colors;
-    size_t tSize = sizeof texCoords;
-    
-    glBindBuffer(GL_ARRAY_BUFFER, vboId);
-    glBufferData(GL_ARRAY_BUFFER, vSize+nSize+cSize+tSize, 0, GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vSize, vertices);                  // copy verts at offset 0
-    glBufferSubData(GL_ARRAY_BUFFER, vSize, nSize, normals);               // copy norms after verts
-    glBufferSubData(GL_ARRAY_BUFFER, vSize+nSize, cSize, colors);          // copy cols after norms
-    glBufferSubData(GL_ARRAY_BUFFER, vSize+nSize+cSize, tSize, texCoords); // copy texs after cols
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glutReshapeFunc(onResize);
+    glutDisplayFunc(onDraw);
+    glutIdleFunc(onIdle);
+    glutKeyboardFunc(onKeyPressed);
+    glutSpecialFunc(onSpecialKeyPressed);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboId);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    
-    // bind VBOs before drawing
-    glBindBuffer(GL_ARRAY_BUFFER, vboId);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboId);
-    
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    
-    size_t nOffset = sizeof vertices;
-    size_t cOffset = nOffset + sizeof normals;
-    size_t tOffset = cOffset + sizeof colors;
-    
-    // specify vertex arrays with their offsets
-    glVertexPointer(3, GL_FLOAT, 0, (void*)0);
-    glNormalPointer(GL_FLOAT, 0, (void*)nOffset);
-    glColorPointer(3, GL_FLOAT, 0, (void*)cOffset);
-    glTexCoordPointer(2, GL_FLOAT, 0, (void*)tOffset);
-    
-        // finally draw a cube with glDrawElements()
-    glDrawElements(GL_TRIANGLES,            // primitive type
-                   36,                      // # of indices
-                   GL_UNSIGNED_INT,         // data type
-                   (void*)0);               // offset to indices
+    glClearColor(0,0,0,1);
 
-    // disable vertex arrays
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_NORMAL_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnable(GL_DEPTH_TEST); // z-buffer test
+    //glDepthFunc(GL_LESS);
+    glShadeModel(GL_SMOOTH);
 
-    // unbind VBOs
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    
-    
-    //auto start = high_resolution_clock::now();
+    expandAxesVertices();
+    expandAxesColors();
+    expandPyramidVertices();
+    expandPyramidColors();
 
-    //glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glLoadIdentity();
-    //light();
+    displayCommands();
 
-    //cameraPosition = glm::rotateY(cameraPosition, glm::radians(1.0f));	
-    //objAngle ++;
-    //gluLookAt(cameraPosition.x,cameraPosition.y,cameraPosition.z,modelPosition.x,modelPosition.y,modelPosition.z,0,1,0);
-    
-    //glm::vec3 rotation_axis = modelPosition-cameraPosition;
+    glutMainLoop();
 
-    //glutSolidCube(2);
-    //glutSwapBuffers();
-
-    ////print_bytes(std::cout, "frame", frame, 3 * 128 * lines);
-    
-    //auto stop = high_resolution_clock::now();
-    //auto diff = stop - start;
-    
-    //std::cout << "frame " << 1000000000.0/((float)(diff.count())) << "\n" << std::flush;
-}
-
-void reshape (int w, int h) {
-    if(!isShown){
-        //glViewport (0, 0, (GLsizei)128, (GLsizei)1);
-        glMatrixMode (GL_PROJECTION);
-        glLoadIdentity ();
-        gluPerspective (1, (GLfloat)128 / (GLfloat)1, 1.0, 100.0);
-        glMatrixMode (GL_MODELVIEW);
-    }
-    else{
-        glViewport (0, 0, (GLsizei)w, (GLsizei)h);
-        glMatrixMode (GL_PROJECTION);
-        glLoadIdentity ();
-        gluPerspective (60, (GLfloat)w / (GLfloat)h, 1.0, 100.0);
-        glMatrixMode (GL_MODELVIEW);
-    }
-}
-
-void keyboard (unsigned char key, int x, int y) {
-    if (key=='s')
-    {
-        if (specular==false)
-        {
-            specular = true;
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, 
-whiteSpecularMaterial);
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
-        }
-        else if (specular==true)
-        {
-            specular = false;
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, blankMaterial);
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, 
-blankMaterial);
-        }
-    }
-    
-    if (key=='d')
-    {
-        if (diffuse==false)
-        {
-            diffuse = true;
-            
-        }
-        else if (diffuse==true)
-        {
-            diffuse = false;
-            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, blankMaterial);
-        }
-    }
-    
-    if (key=='e')
-    {
-        if (emissive==false)
-        {
-            emissive = true;
-            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, 
-greenEmissiveMaterial);
-        }
-        else if (emissive==true)
-        {
-            emissive = false;
-            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, blankMaterial);
-        }
-    }
-}
-
-int main (int argc, char **argv) {
-    if(argc != 2){
-        glutInit (&argc, argv);
-        glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-        glutInitWindowSize (128, 1);
-        glutCreateWindow ("A basic OpenGL Window");
-        init ();
-        glutDisplayFunc (display);
-        glutIdleFunc (display);
-        //glutKeyboardFunc (keyboard);
-        glutReshapeFunc (reshape);
-        
-        
-        //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
-        //glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
-        //glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, redDiffuseMaterial);
-        
-        glutMainLoop ();
-        return 0;
-    }
-    else if(std::strcmp(argv[1], "show") == 0){
-        isShown = true;
-        glutInit (&argc, argv);
-        glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-        glutInitWindowSize (500, 500);
-        glutCreateWindow ("A basic OpenGL Window");
-        init ();
-        glutDisplayFunc (display);
-        glutIdleFunc (display);
-        //glutKeyboardFunc (keyboard);
-        glutReshapeFunc (reshape);
-        
-        //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whiteSpecularMaterial);
-        //glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mShininess);
-        //glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, redDiffuseMaterial);
-        
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
-        
-        std::string vertexShader = 
-        "#version 120 core\n"
-        "layout(location = 0) out vec4 color;\n"
-        "\n"
-        "void main()\n"
-        "{\n"
-        "   color = vec4(1.0, 0.0, 0.0, 1.0);\n"
-        "}\n";
-
-        std::string fragmentShader = 
-        "#version 120 core\n"
-        "layout(location = 0) in vec4 position;\n"
-        "\n"
-        "void main()\n"
-        "{\n"
-        "   gl_position = position;\n"
-        "}\n";
-        
-        unsigned int shader = CreateShader(vertexShader, fragmentShader);
-        glUseProgram(shader);
-        
-        std::cout << glGetString(GL_VERSION) << std::endl;
-        
-        glutMainLoop ();
-        return 0;
-
-    }
+    return 0;
 }
