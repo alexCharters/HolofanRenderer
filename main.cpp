@@ -118,11 +118,11 @@ void expandAxesColors()
 //     0 ---------------3
 //  (0,1,2)          (9,10,11)
 
-float pv[] = { 0.5, 0.5, 0.5,    // 0
-               0.5, 1.5, 0.5,    // 1
-               1.5, 1.5, 0.5,    // 2
-               1.5, 0.5, 0.5,    // 3
-               1.0, 1.0, 1.5 };  // 4
+float pv[] = { -0.5, -0.5, 0.5,    // 0
+               -0.5, 0.5, 0.5,    // 1
+               0.5, 0.5, 0.5,    // 2
+               0.5, -0.5, 0.5,    // 3
+               0.0, 0.0, 1.5 };  // 4
 
 GLubyte pvi[] = {0, 1, 2,
                  2, 3, 0,
@@ -536,16 +536,6 @@ static void drawShaderWithVertexBufferObject()
     // Pass the model-view matrix to the shader
     GLfloat mvMat[16]; 
     glGetFloatv(GL_MODELVIEW_MATRIX, mvMat);
-    
-    //int i;
-    //for(i = 0; i < 16; i++){
-        //std::cout<<mvMat[i]<<" ";
-        //if((i+1)%4==0){
-            //std::cout<<"\n";
-        //}
-    //}
-    //std::cout<<"\n";
-    
     glUniformMatrix4fv(mvloc, 1, false, mvMat);
 
     // Pass the projection matrix to the shader
@@ -599,15 +589,15 @@ static void drawShaderWithVertexBufferObject()
     // Disable the VBO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
-    glDisableVertexAttribArray(vertexAttribCoords);
-    glDisableVertexAttribArray(vertexAttribColor);
+    //glDisableVertexAttribArray(vertexAttribCoords);
+    //glDisableVertexAttribArray(vertexAttribColor);
 
     glUseProgram(texProgram);
 
     glLoadIdentity();
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, framebufferTexture);
 
     GLint ourTexture = glGetUniformLocation(texProgram, "ourTexture");
     glUniform1i(ourTexture, 0);
@@ -775,10 +765,6 @@ static void onDraw(void)
     steady_clock::time_point begin = steady_clock::now();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear Screen And Depth Buffer
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho((-width/2)*zoom, (width/2)*zoom, (-height/2)*zoom, (height/2)*zoom, -10, 10);
-
     gluLookAt(0, 0, 1,  0, 0, 0,  0, 1, 0);
 
     glMatrixMode(GL_MODELVIEW);
@@ -788,7 +774,7 @@ static void onDraw(void)
     glRotatef(thetay, 0, 1, 0);
     glRotatef(thetaz, 0, 0, 1);
 
-    glTranslatef(tx, ty, 0);
+    glTranslatef(tx, ty, -4);
 
     drawShaderWithVertexBufferObject();
 
@@ -841,6 +827,11 @@ void init (void) {
     }
 
     glReadBuffer(GL_FRONT);
+    
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    //glOrtho((-width/2)*zoom, (width/2)*zoom, (-height/2)*zoom, (height/2)*zoom, -10, 10);
+    gluPerspective(65, 1, 0.1, 10);
 
     //glEnable (GL_DEPTH_TEST);
     //glEnable (GL_LIGHTING);
