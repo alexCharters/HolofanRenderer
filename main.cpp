@@ -7,10 +7,16 @@
 #include <stdio.h>
 #include <iostream>
 #include <math.h>   // fabs
+#include "Fan.h"
+
+#include "CImg.h"
 
 #include <chrono>
 using namespace std::chrono;
+using namespace cimg_library;
+using namespace std;
 
+Fan fan;
 
 static double zoom = .01;
 static int width = 0;
@@ -43,7 +49,8 @@ GLuint VERTEX_ATTR_COLOR = 2;
 const int winWidth = 500;
 const int winHeight = 500;
 
-uint outBuffer[128*512*3];
+GLfloat outBuffer[128*512*3];
+GLfloat initOutBuffer[500*500*3];
 
 const int nCoordsComponents = 3;
 const int nColorComponents = 3;
@@ -589,6 +596,21 @@ static void drawShaderWithVertexBufferObject()
     // Disable the VBO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
+    //unsigned char   *pixels = (unsigned char*)malloc(500*500*3);
+
+    ///// READ THE CONTENT FROM THE FBO
+    //glReadBuffer(GL_COLOR_ATTACHMENT0);
+    //glReadPixels(0, 0, 500, 500, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    
+    //cimg_library::CImg<uint> img(500,500,1,3); 
+    //cimg_forXYC(img,x,y,c) {
+        //img(x,y,c) = pixels[x*500*3 + y*3+c];
+    //}
+    //img.save_pfm("yoink.pfm");
+    
+    //cimg_foroff(img,off) { pixels[off]=initOutBuffer[off]; }
+    //img.save_pfm("yeet.pfm");
+    
     //glDisableVertexAttribArray(vertexAttribCoords);
     //glDisableVertexAttribArray(vertexAttribColor);
 
@@ -603,6 +625,7 @@ static void drawShaderWithVertexBufferObject()
     glUniform1i(ourTexture, 0);
     
     glBindFramebuffer(GL_FRAMEBUFFER, originalFramebuffer);
+    //glBindFramebuffer(GL_READ_FRAMEBUFFER, originalFramebuffer);
     glViewport(0,0,128,512);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -618,13 +641,55 @@ static void drawShaderWithVertexBufferObject()
     
     glDrawArrays(GL_TRIANGLES, 0, 6);
     
-    glReadPixels(0, 0, 128, 512, GL_RGB, GL_UNSIGNED_BYTE, outBuffer);
+    unsigned char   *pixels = (unsigned char*)malloc(128*512*3);
+
+    /// READ THE CONTENT FROM THE FBO
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, 128, 512, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    
+    //cimg_library::CImg<uint> img(128,512,1,3); 
+    //cimg_forXYC(img,x,y,c) {
+        //img(x,y,c) = pixels[y*128*3 + x*3+c];
+    //}
+    //img.save_pfm("yoink.pfm");
+    
+    //cimg_foroff(img,off) { pixels[off]=pixels[off]; }
+    //img.save_pfm("yeet.pfm");
+    
+    //FILE *output_image;
+    //int output_width = 128;
+    //int output_height = 512;
+    //int h, j, k;
+    //output_image = fopen("output.ppm", "wt");
+    //fprintf(output_image,"P3\n");
+    //fprintf(output_image,"# Created by Ricao\n");
+    //fprintf(output_image,"%d %d\n",output_width,output_height);
+    //fprintf(output_image,"255\n");
+
+    //k = 0;
+    //for(h=0; h<output_width; h++)
+    //{
+        //for(j=0; j<output_height; j++)
+        //{
+            //fprintf(output_image,"%u %u %u ",(unsigned int)pixels[k],(unsigned int)pixels[k+1],
+                                             //(unsigned int)pixels[k+2]);
+            //k = k+3;
+        //}
+        //fprintf(output_image,"\n");
+    //}
+    //free(pixels);
+    
+    fan.writeFrame(pixels);
+    //fan.printBuffer(fan.bufferOne);
     
     //int i;
     //for(i = 0; i < 128*3*512; i++){
-        //std::cout<<outBuffer[i];
+        //std::cout<<(int)pixels[i]<<"|";
+        //if((i+1)%(3)==0){
+            //std::cout<<"||";
+        //}
         //if((i+1)%(128*3)==0){
-            //std::cout<<"\n";
+            //std::cout<<"\n\n";
         //}
     //}
     //std::cout<<"\n\n";
@@ -826,7 +891,7 @@ void init (void) {
         std::cout<<"ERROR: Framebuffer not configured correctly.\n";
     }
 
-    glReadBuffer(GL_FRONT);
+    //glReadBuffer(GL_FRONT);
     
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
