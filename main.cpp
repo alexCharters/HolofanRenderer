@@ -9,6 +9,8 @@
 #include <math.h>   // fabs
 
 #include <chrono>
+#include <Encoder.h>
+
 using namespace std::chrono;
 
 
@@ -17,6 +19,8 @@ static int width = 0;
 static int height = 0;
 static float tx=0, ty=0;
 static float thetax=0, thetay=0, thetaz=0;
+
+Encoder encoder;
 
 enum DrawType
 {
@@ -698,68 +702,6 @@ static void drawVertexArray()
 }
 
 // ---------------------------------------------------------------------------
-static void drawImmediate()
-{
-    // Draw x-axis in red
-    glColor3d(ac[0], ac[1], ac[2]);
-    glBegin(GL_LINES);
-        glVertex3f(av[0], av[1], av[2]);
-        glVertex3f(av[3], av[4], av[5]);
-    glEnd();
-
-    // Draw y-axis in green
-    glColor3d(ac[3], ac[4], ac[5]);
-    glBegin(GL_LINES);
-        glVertex3f(av[0], av[1], av[2]);
-        glVertex3f(av[6], av[7], av[8]);
-    glEnd();
-
-    // Draw z-axis in blue
-    glColor3d(ac[6], ac[7], ac[8]);
-    glBegin(GL_LINES);
-        glVertex3f(av[0], av[1], av[2]);
-        glVertex3f(av[9], av[10], av[11]);
-    glEnd();
-
-    // Draw pyramid
-    glBegin(GL_TRIANGLES);
-        glColor3d(pc[0], pc[1], pc[2]);
-
-        glVertex3f(pv[0], pv[1], pv[2]);       // 0
-        glVertex3f(pv[3], pv[4], pv[5]);       // 1
-        glVertex3f(pv[6], pv[7], pv[8]);       // 2
-
-        glVertex3f(pv[6], pv[7],  pv[8]);      // 2
-        glVertex3f(pv[9], pv[10], pv[11]);     // 3
-        glVertex3f(pv[0], pv[1],  pv[2]);      // 0
-
-        glColor3f(pc[3], pc[4], pc[5]);
-
-        glVertex3f(pv[0],  pv[1],  pv[2]);     // 0
-        glVertex3f(pv[9],  pv[10], pv[11]);    // 3
-        glVertex3f(pv[12], pv[13], pv[14]);    // 4
-
-        glColor3f(pc[6], pc[7], pc[8]);
-
-        glVertex3f(pv[9],  pv[10], pv[11]);    // 3
-        glVertex3f(pv[6],  pv[7],  pv[8]);     // 2
-        glVertex3f(pv[12], pv[13], pv[14]);    // 4
-
-        glColor3f(pc[9], pc[10], pc[11]);
-
-        glVertex3f(pv[6],  pv[7],  pv[8]);     // 2
-        glVertex3f(pv[3],  pv[4],  pv[5]);     // 1
-        glVertex3f(pv[12], pv[13], pv[14]);    // 4
-
-        glColor3f(pc[12],  pc[13], pc[14]);
-
-        glVertex3f(pv[3],  pv[4],  pv[5]);     // 1
-        glVertex3f(pv[0],  pv[1],  pv[2]);     // 0
-        glVertex3f(pv[12], pv[13], pv[14]);    // 4
-    glEnd();
-}
-
-// ---------------------------------------------------------------------------
 static void onDraw(void)
 {
     steady_clock::time_point begin = steady_clock::now();
@@ -782,6 +724,9 @@ static void onDraw(void)
     //std::cout<<"\n";
 
     glutSwapBuffers();
+    
+    
+    std::cout << encoder.readpos() << "\n";
     steady_clock::time_point end = steady_clock::now();
     std::cout << "Time difference = " <<duration_cast<nanoseconds> (end - begin).count() << "[ns]" << std::endl;
     std::cout << "fps = " <<1000000000/(duration_cast<nanoseconds> (end - begin).count()) << "[fps]" << std::endl;
