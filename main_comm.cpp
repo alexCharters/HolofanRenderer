@@ -6,14 +6,16 @@
 #include <vector>
 #include <stdio.h>
 #include <iostream>
-#include <math.h>   // fabs
+#include <sstream>
+#include <vector>
+#include <math.h>
+#include <thread>
+#include <string>
 #include "Fan.h"
 
 #include "CImg.h"
 
 #include <chrono>
-#include <Encoder.h>
-
 using namespace std::chrono;
 using namespace cimg_library;
 using namespace std;
@@ -25,8 +27,6 @@ static int width = 0;
 static int height = 0;
 static float tx=0, ty=0;
 static float thetax=0, thetay=0, thetaz=0;
-
-Encoder encoder;
 
 enum DrawType
 {
@@ -129,11 +129,11 @@ void expandAxesColors()
 //     0 ---------------3
 //  (0,1,2)          (9,10,11)
 
-float pv[] = { -0.5, -0.5, 0.5,    // 0
-               -0.5, 0.5, 0.5,    // 1
-               0.5, 0.5, 0.5,    // 2
-               0.5, -0.5, 0.5,    // 3
-               0.0, 0.0, 1.5 };  // 4
+float pv[] = { -0.5, -0.5, -0.5,    // 0
+               -0.5, 0.5, -0.5,    // 1
+               0.5, 0.5, -0.5,    // 2
+               0.5, -0.5, -0.5,    // 3
+               0.0, 0.0, 0.5 };  // 4
 
 GLubyte pvi[] = {0, 1, 2,
                  2, 3, 0,
@@ -310,6 +310,33 @@ static void onSpecialKeyPressed(int key, int x, int y)
     }
 
     glutPostRedisplay();
+}
+
+// ---------------------------------------------------------------------------
+
+vector<string> split (const string &s, char delim) {
+    vector<string> result;
+    stringstream ss (s);
+    string item;
+
+    while (getline (ss, item, delim)) {
+        result.push_back (item);
+    }
+
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+static void readWorker()
+{
+    while(1){
+        for (std::string line; std::getline(std::cin, line);) {
+            vector<string> v = split (line, '|');
+            thetax = std::stof(v.at(0));
+            thetay = std::stof(v.at(1));
+            glutPostRedisplay();
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -767,6 +794,68 @@ static void drawVertexArray()
 }
 
 // ---------------------------------------------------------------------------
+static void drawImmediate()
+{
+    // Draw x-axis in red
+    glColor3d(ac[0], ac[1], ac[2]);
+    glBegin(GL_LINES);
+        glVertex3f(av[0], av[1], av[2]);
+        glVertex3f(av[3], av[4], av[5]);
+    glEnd();
+
+    // Draw y-axis in green
+    glColor3d(ac[3], ac[4], ac[5]);
+    glBegin(GL_LINES);
+        glVertex3f(av[0], av[1], av[2]);
+        glVertex3f(av[6], av[7], av[8]);
+    glEnd();
+
+    // Draw z-axis in blue
+    glColor3d(ac[6], ac[7], ac[8]);
+    glBegin(GL_LINES);
+        glVertex3f(av[0], av[1], av[2]);
+        glVertex3f(av[9], av[10], av[11]);
+    glEnd();
+
+    // Draw pyramid
+    glBegin(GL_TRIANGLES);
+        glColor3d(pc[0], pc[1], pc[2]);
+
+        glVertex3f(pv[0], pv[1], pv[2]);       // 0
+        glVertex3f(pv[3], pv[4], pv[5]);       // 1
+        glVertex3f(pv[6], pv[7], pv[8]);       // 2
+
+        glVertex3f(pv[6], pv[7],  pv[8]);      // 2
+        glVertex3f(pv[9], pv[10], pv[11]);     // 3
+        glVertex3f(pv[0], pv[1],  pv[2]);      // 0
+
+        glColor3f(pc[3], pc[4], pc[5]);
+
+        glVertex3f(pv[0],  pv[1],  pv[2]);     // 0
+        glVertex3f(pv[9],  pv[10], pv[11]);    // 3
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+
+        glColor3f(pc[6], pc[7], pc[8]);
+
+        glVertex3f(pv[9],  pv[10], pv[11]);    // 3
+        glVertex3f(pv[6],  pv[7],  pv[8]);     // 2
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+
+        glColor3f(pc[9], pc[10], pc[11]);
+
+        glVertex3f(pv[6],  pv[7],  pv[8]);     // 2
+        glVertex3f(pv[3],  pv[4],  pv[5]);     // 1
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+
+        glColor3f(pc[12],  pc[13], pc[14]);
+
+        glVertex3f(pv[3],  pv[4],  pv[5]);     // 1
+        glVertex3f(pv[0],  pv[1],  pv[2]);     // 0
+        glVertex3f(pv[12], pv[13], pv[14]);    // 4
+    glEnd();
+}
+
+// ---------------------------------------------------------------------------
 static void onDraw(void)
 {
     steady_clock::time_point begin = steady_clock::now();
@@ -777,11 +866,13 @@ static void onDraw(void)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
+    glTranslatef(tx, ty, -4);
+
     glRotatef(thetax, 1, 0, 0);
     glRotatef(thetay, 0, 1, 0);
     glRotatef(thetaz, 0, 0, 1);
 
-    glTranslatef(tx, ty, -4);
+    
 
     drawShaderWithVertexBufferObject();
 
@@ -789,9 +880,6 @@ static void onDraw(void)
     //std::cout<<"\n";
 
     glutSwapBuffers();
-    
-    
-    std::cout << encoder.readpos() << "\n";
     steady_clock::time_point end = steady_clock::now();
     std::cout << "Time difference = " <<duration_cast<nanoseconds> (end - begin).count() << "[ns]" << std::endl;
     std::cout << "fps = " <<1000000000/(duration_cast<nanoseconds> (end - begin).count()) << "[fps]" << std::endl;
@@ -876,6 +964,8 @@ int main(int argc, char* argv[])
     glEnable(GL_DEPTH_TEST); // z-buffer test
     //glDepthFunc(GL_LESS);
     glShadeModel(GL_SMOOTH);
+    
+    std::thread reader_thread(readWorker);
 
     expandAxesVertices();
     expandAxesColors();
