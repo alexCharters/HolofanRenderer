@@ -2,7 +2,8 @@
 #define ENCODER_H
 
 #include<iostream>
-#include <wiringPi.h>
+#include <pigpio.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <thread>

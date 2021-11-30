@@ -5,8 +5,37 @@
 
 #include "Fan.h"
 
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+  (byte & 0x80 ? '1' : '0'), \
+  (byte & 0x40 ? '1' : '0'), \
+  (byte & 0x20 ? '1' : '0'), \
+  (byte & 0x10 ? '1' : '0'), \
+  (byte & 0x08 ? '1' : '0'), \
+  (byte & 0x04 ? '1' : '0'), \
+  (byte & 0x02 ? '1' : '0'), \
+  (byte & 0x01 ? '1' : '0') 
+  
+void signalHandler( int signum ) {
+   std::cout << "Interrupt signal (" << signum << ") received. yeet.\n";
+
+   gpioTerminate();
+
+   exit(signum);  
+}
+
 Fan::Fan(){
-	wiringPiSPISetup(0, 32000000) ;
+	if(gpioInitialise() < 0){
+		std::cout<<"pigpio err\n";
+		return;
+	}
+	
+	signal(SIGINT, signalHandler); 
+	signal(SIGABRT, signalHandler); 
+	signal(SIGTERM, signalHandler); 
+	
+	spi = spiOpen(0, int(8e6), 0xEF);
+	
 	srand(time(NULL));
 	
 	
@@ -42,42 +71,59 @@ Fan::Fan(){
 
 void Fan::render(){
 	while(true){
-		int line = rand() % 512;
+		int line = encoder.readpos();
+		
+		//std::cout<<(line & 0x001F)<<"\n";
+		//std::cout<<(!(line & 0x001F))<<"\n";
+		//printf("m: " BYTE_TO_BINARY_PATTERN " " BYTE_TO_BINARY_PATTERN "\n", BYTE_TO_BINARY(line>>8), BYTE_TO_BINARY(line));
+		//std::cout<<(line >> 7)<<"\n";
+		
+		//std::cout<<(line)<<"\n";
+		//printf("m: " BYTE_TO_BINARY_PATTERN " " BYTE_TO_BINARY_PATTERN "\n", BYTE_TO_BINARY(line>>8), BYTE_TO_BINARY(line));
+		
 		if(usingBufferOne){
-			wiringPiSPIDataRW(0, &bufferTwo[line*(128*4 + 8)], 128*3);
+			spiWrite(spi, &bufferTwo[(line)*(128*4 + 8)], 128*4+8);
 		}
 		else{
-			wiringPiSPIDataRW(0, &bufferOne[line*(128*4 + 8)], 128*3);
+			spiWrite(spi, &bufferOne[(line)*(128*4 + 8)], 128*4+8);
 		}
 	}
 }
 
-void Fan::writeFrame(unsigned char* frame){
-	uint8_t* buffToWrite;
+void Fan::writeFrame(char* frame){
 	if(usingBufferOne){
-		buffToWrite = bufferOne;
-		std::cout << "buff one\n";
-	}
-	else{
-		buffToWrite = bufferTwo;
-		std::cout << "buff two\n";
-	}
-	
-	int i, j;
-	for(i = 0; i < radialResolution; i++){
-		int offset = i*(4*pixels+8)+4;
-		int dataOffset = i*(128*3);
-		for(j = 0; j < pixels; j++){
-			buffToWrite[offset+j*4+1] = frame[dataOffset+j*3];
-			buffToWrite[offset+j*4+2] = frame[dataOffset+j*3+1];
-			buffToWrite[offset+j*4+3] = frame[dataOffset+j*3+2];
+		int i, j;
+		for(i = 0; i < radialResolution; i++){
+			int offset = i*(4*pixels+8)+4;
+			int dataOffset = i*(128*3);
+			for(j = 0; j < pixels; j++){
+				//std::cout<<offset+j*4+1<<" "<<dataOffset+j*3<<"\n";
+				bufferOne[offset+j*4+1] = frame[dataOffset+j*3+2]; //b
+				bufferOne[offset+j*4+2] = frame[dataOffset+j*3+1]; //g
+				bufferOne[offset+j*4+3] = frame[dataOffset+j*3]; //r
+			}
 		}
 	}
+	else{
+		int i, j;
+		for(i = 0; i < radialResolution; i++){
+			int offset = i*(4*pixels+8)+4;
+			int dataOffset = i*(128*3);
+			for(j = 0; j < pixels; j++){
+				//std::cout<<offset+j*4+1<<" "<<dataOffset+j*3<<"\n";
+				bufferTwo[offset+j*4+1] = frame[dataOffset+j*3+2];
+				bufferTwo[offset+j*4+2] = frame[dataOffset+j*3+1];
+				bufferTwo[offset+j*4+3] = frame[dataOffset+j*3];
+			}
+		}
+	}
+	
+	
 	
 	usingBufferOne = !usingBufferOne;
 }
 
-void Fan::printBuffer(uint8_t* buff){
+void Fan::printBuffer(char* buff){
 	int i, j;
 	for(i = 0; i < radialResolution; i++){
 		int k;

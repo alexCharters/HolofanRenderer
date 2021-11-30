@@ -59,6 +59,8 @@ const int numLEDs = 128;
 GLfloat outBuffer[numLEDs*radialRes*3];
 GLfloat initOutBuffer[500*500*3];
 
+int ser_handle;
+
 const int nCoordsComponents = 3;
 const int nColorComponents = 3;
 const int nLines = 3;
@@ -332,13 +334,12 @@ vector<string> split (const string &s, char delim) {
 // ---------------------------------------------------------------------------
 static void readWorker()
 {
+    char bytes[8];
     while(1){
-        for (std::string line; std::getline(std::cin, line);) {
-            vector<string> v = split (line, '|');
-            thetax = std::stof(v.at(0));
-            thetay = std::stof(v.at(1));
-            glutPostRedisplay();
-        }
+        serRead(ser_handle, bytes, 8);
+        memcpy(&thetax, &bytes, sizeof(thetax));
+        memcpy(&thetay, &(bytes+4), sizeof(thetay));
+        glutPostRedisplay();
     }
 }
 
@@ -971,7 +972,13 @@ int main(int argc, char* argv[])
     //glDepthFunc(GL_LESS);
     glShadeModel(GL_SMOOTH);
     
-    std::thread reader_thread(readWorker);
+    ser_handle = serOpen("/dev/ttyS0", 9600, 0);
+    if(ser_handle >= 0){
+        std::thread reader_thread(readWorker);
+    }
+    else{
+        std::cout<<"serial err: "<<ser_handle<<"\n";
+    }
 
     expandAxesVertices();
     expandAxesColors();

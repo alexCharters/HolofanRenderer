@@ -4,67 +4,94 @@
  * 
  */
 #include "Encoder.h"
-#include <wiringPi.h>
+
+
 
 Encoder::Encoder() { // Constructor with parameters
-  clkPin = 2;
-  datPin = 3;
+  clkPin = 17;
+  datPin = 27;
   csPin = 4;
   
-  delay = 5;
+  delay = 1;
   ns = 1;
   bitcount = 16;
   
-  wiringPiSetupGpio();
+  if (gpioInitialise() < 0){
+    std::cout<<"encoder pi pigpio err\n";
+    return;
+  };
   
-  pinMode(clkPin, OUTPUT);
-  pinMode(clkPin, OUTPUT);
-  pinMode(datPin, INPUT);
-  pinMode(csPin, OUTPUT);
+  gpioSetMode(clkPin, PI_OUTPUT);
+  gpioSetMode(datPin, PI_INPUT);
+  gpioSetMode(csPin, PI_OUTPUT);
   
-  digitalWrite(csPin, 1);
-  digitalWrite(clkPin, 1);
+  gpioWrite(csPin, 1);
+  gpioWrite(clkPin, 1);
+  
+  usleep(500000);
   
   std::cout<<"GPIO configuration enabled\n";
 }
 
+void Encoder::clockup(){
+  gpioWrite(clkPin, 1);
+}
+
+void Encoder::clockdown(){
+  gpioWrite(clkPin, 0);
+}
+
+void Encoder::MSB(){
+  clockdown();
+}
+
 uint Encoder::readpos(){
-  digitalWrite(csPin, 0);
-  sleep_for(nanoseconds(delay));
+  gpioWrite(csPin, 0);
+  usleep(10);
   MSB();
   uint data = 0;
   
   int i, j;
+  //for(i = 0; i<bitcount; i++){
+    //if(i < 10){
+      //clockup();
+      //for(j = 0; j < ns; j++){
+        //data <<= 1;
+        //data |= gpioRead(datPin);
+      //}
+      //clockdown();
+    //}
+    //else{
+      //for(j = 0; j < 6; j++){
+        //clockup();
+        //clockdown();
+      //}
+    //}
+  //}
+  
   for(i = 0; i<bitcount; i++){
-    if(i < 10){
+    if(i<10){
       clockup();
+      gpioWrite(clkPin, 1);
       for(j = 0; j < ns; j++){
         data <<= 1;
-        data |= digitalRead(datPin);
+        usleep(10);
+        data |= gpioRead(datPin);
       }
       clockdown();
+      gpioWrite(clkPin, 0);
     }
     else{
-      for(j = 0; j < 6; j++){
+      int k;
+      for(k = 0; k < 6; k++){
         clockup();
         clockdown();
       }
     }
   }
   
-  digitalWrite(csPin, 1);
+  gpioWrite(csPin, 1);
+
   return data;
-}
-  
-void Encoder::clockup(){
-  digitalWrite(clkPin, 1);
-}
-
-void Encoder::clockdown(){
-  digitalWrite(clkPin, 0);
-}
-
-void Encoder::MSB(){
-  clockdown();
 }
 
