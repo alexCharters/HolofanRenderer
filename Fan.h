@@ -14,7 +14,7 @@ class Fan{
 	private:
 		int pi;
 		int spi;
-		int radialOffset = -150;
+		int radialOffset = 290;
 	
 		bool usingBufferOne = true;
 		

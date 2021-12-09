@@ -344,10 +344,10 @@ static void readWorker()
             std::cout<<"\n";
             
             
-            memcpy(&thetax, &bytes, sizeof(thetax));
-            memcpy(&thetay, &(bytes[4]), sizeof(thetay));
+            memcpy(&thetay, &bytes, sizeof(thetax));
+            memcpy(&thetax, &(bytes[4]), sizeof(thetay));
             
-            //std::cout<<thetax<<" | "<<thetay<<"\n";
+            std::cout<<thetax<<" | "<<thetay<<"\n";
             
             glutPostRedisplay();
         }
@@ -870,9 +870,25 @@ void init (void) {
     //glOrtho((-width/2)*zoom, (width/2)*zoom, (-height/2)*zoom, (height/2)*zoom, -10, 10);
     gluPerspective(65, 1, 0.1, 10);
 
-    //glEnable (GL_DEPTH_TEST);
-    //glEnable (GL_LIGHTING);
-    //glEnable (GL_LIGHT0);
+    glEnable (GL_DEPTH_TEST);
+    glEnable (GL_LIGHTING);
+    glEnable (GL_LIGHT1);
+    
+    GLfloat ambientColor[] = {0.0f, 0.0f, 0.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
+    
+    //Light
+    GLfloat lightColor0[] = {0.8f, 0.8f, 0.8f};
+    GLfloat lightPos0[] = {0.0f, 1.0f, 0.0f, 1.0};
+    glLightfv(GL_LIGHT1, GL_SPECULAR, lightColor0);
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, lightColor0);
+    glLightfv(GL_LIGHT1, GL_POSITION, lightPos0);
+
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 45.0);
+    GLfloat spot_direction[] = { 0.0, -0.2, -1.0 };
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spot_direction);
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 1.0);
+    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 2.0);
 }
 
 static void onIdle(){

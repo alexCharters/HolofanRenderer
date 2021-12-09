@@ -60,8 +60,8 @@ Fan::Fan(){
 		bufferTwo[(i+1)*(4*pixels+8)-4] = 0xFF;
 		
 		for(j = 0; j < pixels; j++){
-			bufferOne[i*(4*pixels+8)+4+j*4] = 0xE1;
-			bufferTwo[i*(4*pixels+8)+4+j*4] = 0xE1;
+			bufferOne[i*(4*pixels+8)+4+j*4] = 0xC1;
+			bufferTwo[i*(4*pixels+8)+4+j*4] = 0xC1;
 		}
 	}
 	
