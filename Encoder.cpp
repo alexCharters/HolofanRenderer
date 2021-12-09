@@ -47,48 +47,37 @@ void Encoder::MSB(){
 
 uint Encoder::readpos(){
   gpioWrite(csPin, 0);
-  usleep(10);
+  usleep(20);
   MSB();
   uint data = 0;
   
   int i, j;
-  //for(i = 0; i<bitcount; i++){
-    //if(i < 10){
-      //clockup();
-      //for(j = 0; j < ns; j++){
-        //data <<= 1;
-        //data |= gpioRead(datPin);
-      //}
-      //clockdown();
-    //}
-    //else{
-      //for(j = 0; j < 6; j++){
-        //clockup();
-        //clockdown();
-      //}
-    //}
-  //}
-  
   for(i = 0; i<bitcount; i++){
     if(i<10){
       clockup();
       gpioWrite(clkPin, 1);
       for(j = 0; j < ns; j++){
         data <<= 1;
-        usleep(10);
+        usleep(20);
         data |= gpioRead(datPin);
       }
       clockdown();
       gpioWrite(clkPin, 0);
     }
     else{
-      int k;
-      for(k = 0; k < 6; k++){
-        clockup();
-        clockdown();
+      clockup();
+      gpioWrite(clkPin, 1);
+      for(j = 0; j < ns; j++){
+        data <<= 1;
+        usleep(20);
+        data |= gpioRead(datPin);
       }
+      clockdown();
+      gpioWrite(clkPin, 0);
     }
   }
+  
+  //std::cout<<flags<<"\n";
   
   gpioWrite(csPin, 1);
 

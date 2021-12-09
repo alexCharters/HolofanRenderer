@@ -335,8 +335,8 @@ static void readWorker()
     while(1){
         for (std::string line; std::getline(std::cin, line);) {
             vector<string> v = split (line, '|');
-            thetax = std::stof(v.at(0));
-            thetay = std::stof(v.at(1));
+            thetay = std::stof(v.at(0));
+            thetax = std::stof(v.at(1));
             glutPostRedisplay();
         }
     }
@@ -482,7 +482,7 @@ static void initShaders()
         std::cerr << infoLog.data() << "\n";
     }
 
-    glUseProgram (phongProgram);
+    glUseProgram (0);
 }
 
 // ---------------------------------------------------------------------------
@@ -599,20 +599,6 @@ static void drawShaderWithVertexBufferObject()
     vboIds = new GLuint[4];
     glGenBuffers(4, vboIds);
 
-    //// Set axes data
-    //glBindBuffer(GL_ARRAY_BUFFER, vboIds[0]);  // coordinates
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(ave), ave, GL_STATIC_DRAW);
-    //glVertexAttribPointer(vertexAttribCoords, nCoordsComponents, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(vertexAttribCoords);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, vboIds[1]);  // color
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(ace), ace, GL_STATIC_DRAW);
-    //glVertexAttribPointer(vertexAttribColor, nColorComponents, GL_FLOAT, GL_FALSE, 0, 0);
-    //glEnableVertexAttribArray(vertexAttribColor);
-
-    //// Draw axes
-    //glDrawArrays(GL_LINES, 0, nLines*nVerticesPerLine);
-
     // Set pyramid data
     glBindBuffer(GL_ARRAY_BUFFER, vboIds[2]);  // coordinates
     glBufferData(GL_ARRAY_BUFFER, sizeof(pve), pve, GL_STATIC_DRAW);
@@ -625,28 +611,11 @@ static void drawShaderWithVertexBufferObject()
     glEnableVertexAttribArray(vertexAttribColor);
 
     // Draw pyramid
-    glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
+    //glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
+    glutSolidTeapot(3);
 
     // Disable the VBO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
-    //unsigned char   *pixels = (unsigned char*)malloc(500*500*3);
-
-    ///// READ THE CONTENT FROM THE FBO
-    //glReadBuffer(GL_COLOR_ATTACHMENT0);
-    //glReadPixels(0, 0, 500, 500, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-    
-    //cimg_library::CImg<uint> img(500,500,1,3); 
-    //cimg_forXYC(img,x,y,c) {
-        //img(x,y,c) = pixels[x*500*3 + y*3+c];
-    //}
-    //img.save_pfm("yoink.pfm");
-    
-    //cimg_foroff(img,off) { pixels[off]=initOutBuffer[off]; }
-    //img.save_pfm("yeet.pfm");
-    
-    //glDisableVertexAttribArray(vertexAttribCoords);
-    //glDisableVertexAttribArray(vertexAttribColor);
 
     glUseProgram(texProgram);
 
@@ -682,54 +651,6 @@ static void drawShaderWithVertexBufferObject()
     glReadPixels(0, 0, numLEDs, radialRes, GL_RGB, GL_UNSIGNED_BYTE, pixels);
     
     fan.writeFrame(pixels);
-    
-    //cimg_library::CImg<uint> img(numLEDs,radialRes,1,3); 
-    //cimg_forXYC(img,x,y,c) {
-        //img(x,y,c) = pixels[y*numLEDs*3 + x*3+c];
-    //}
-    //img.save_pfm("yoink.pfm");
-    
-    //cimg_foroff(img,off) { pixels[off]=pixels[off]; }
-    //img.save_pfm("yeet.pfm");
-    
-    //FILE *output_image;
-    //int output_width = numLEDs;
-    //int output_height = radialRes;
-    //int h, j, k;
-    //output_image = fopen("output.ppm", "wt");
-    //fprintf(output_image,"P3\n");
-    //fprintf(output_image,"# Created by Ricao\n");
-    //fprintf(output_image,"%d %d\n",output_width,output_height);
-    //fprintf(output_image,"255\n");
-
-    //k = 0;
-    //for(h=0; h<output_width; h++)
-    //{
-        //for(j=0; j<output_height; j++)
-        //{
-            //fprintf(output_image,"%u %u %u ",(unsigned int)pixels[k],(unsigned int)pixels[k+1],
-                                             //(unsigned int)pixels[k+2]);
-            //k = k+3;
-        //}
-        //fprintf(output_image,"\n");
-    //}
-    //free(pixels);
-    
-    //fan.printBuffer(fan.bufferOne);
-    //
-    //fan.printBuffer(fan.bufferOne);
-    
-    //int i;
-    //for(i = 0; i < numLEDs*3*radialRes; i++){
-        //std::cout<<(int)pixels[i]<<"|";
-        //if((i+1)%(3)==0){
-            //std::cout<<"||";
-        //}
-        //if((i+1)%(numLEDs*3)==0){
-            //std::cout<<"\n\n";
-        //}
-    //}
-    //std::cout<<"\n\n";
     
     glDisableVertexAttribArray(texVertexAttribCoords);
 }
@@ -872,7 +793,7 @@ static void onDraw(void)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    glTranslatef(tx, ty, -1);
+    glTranslatef(tx, ty, -5);
 
     glRotatef(thetax, 1, 0, 0);
     glRotatef(thetay, 0, 1, 0);

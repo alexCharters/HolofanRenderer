@@ -6,6 +6,7 @@
 #include <pigpio.h>
 #include <Encoder.h>
 #include <csignal>
+#include <cmath>
 
 #ifndef FAN_H
 #define FAN_H
@@ -13,6 +14,7 @@ class Fan{
 	private:
 		int pi;
 		int spi;
+		int radialOffset = -150;
 	
 		bool usingBufferOne = true;
 		
@@ -34,6 +36,8 @@ class Fan{
 		void printBuffer(char* buff);
 		void switchBuffers();
 		void writeFrame(char* frame);
+		
+		int lastLine;
 		
 };
 #endif

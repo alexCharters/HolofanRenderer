@@ -72,6 +72,18 @@ Fan::Fan(){
 void Fan::render(){
 	while(true){
 		int line = encoder.readpos();
+		//printf("m: " BYTE_TO_BINARY_PATTERN " " BYTE_TO_BINARY_PATTERN "\n", BYTE_TO_BINARY(line>>8), BYTE_TO_BINARY(line));
+		int flags = line&0x3F;
+		//printf("m: " BYTE_TO_BINARY_PATTERN "\n", BYTE_TO_BINARY(flags));
+		if(!(flags & 0x20) || flags & 0x10) continue;
+		
+		line = line>>6;
+		//std::cout<<"line: "<<line<<"\n";
+		line = (line-radialOffset)%1024;
+		line=line<0?line+radialResolution:line;
+		//std::cout<<"offset line: "<<line<<"\n\n";
+		
+		lastLine = line;
 		
 		//std::cout<<(line & 0x001F)<<"\n";
 		//std::cout<<(!(line & 0x001F))<<"\n";
@@ -87,6 +99,7 @@ void Fan::render(){
 		else{
 			spiWrite(spi, &bufferOne[(line)*(128*4 + 8)], 128*4+8);
 		}
+		
 	}
 }
 
