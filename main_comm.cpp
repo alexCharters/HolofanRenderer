@@ -12,6 +12,10 @@
 #include <thread>
 #include <string>
 #include "Fan.h"
+#include <wiringSerial.h>
+#include <glm/vec3.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 
 #include "CImg.h"
 
@@ -21,6 +25,7 @@ using namespace cimg_library;
 using namespace std;
 
 Fan fan;
+int fd;
 
 static double zoom = .01;
 static int width = 0;
@@ -65,6 +70,10 @@ const int nLines = 3;
 const int nVerticesPerLine = 2;
 const int nFaces = 6;
 const int nVerticesPerFace = 3;
+
+glm::vec3 objPos = glm::vec3(0.0f, 0.0f, -5.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 5.0f);
+glm::vec3 cameraDir = glm::vec3(0.0f, 0.0f, -1.0f);
 
 // =========== Axis Data ======================================================
 
@@ -242,7 +251,7 @@ static void displayCommands()
 // ---------------------------------------------------------------------------
 static void onKeyPressed(unsigned char key, int x, int y)
 {
-    switch (key)
+        switch (key)
     {
     case 27 :
     case 'Q':
@@ -290,6 +299,12 @@ static void onKeyPressed(unsigned char key, int x, int y)
         drawType = kShaderVBO; break;
     case '5':
         drawType = kShaderVAO; break;
+        
+    case 'r':
+        fan.radialOffset += 1; break;
+    case 't':
+        fan.radialOffset -= 1; break;        
+        
     default:
         break;
     }
@@ -612,7 +627,7 @@ static void drawShaderWithVertexBufferObject()
 
     // Draw pyramid
     //glDrawArrays(GL_TRIANGLES, 0, nFaces*nVerticesPerFace);
-    glutSolidTeapot(3);
+    glutSolidTeapot(2);
 
     // Disable the VBO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -793,13 +808,23 @@ static void onDraw(void)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    glTranslatef(tx, ty, -5);
+    glTranslatef(tx, ty, -7);
 
     glRotatef(thetax, 1, 0, 0);
     glRotatef(thetay, 0, 1, 0);
     glRotatef(thetaz, 0, 0, 1);
-
     
+    glm::rotate(cameraPos, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::rotate(cameraDir, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    GLfloat lightPos0[] = {objPos.x + cameraPos.x, objPos.y + cameraPos.y, objPos.z + cameraPos.z, 1.0};
+    GLfloat spot_direction[] = { cameraDir.x, cameraDir.y, cameraDir.z };
+    
+    printf("lightPos0: %f %f %f \n", lightPos0[0], lightPos0[1], lightPos0[2]);
+    printf("dir: %f %f %f \n", spot_direction[0], spot_direction[1], spot_direction[2]);
+
+    //glLightfv(GL_LIGHT1, GL_POSITION, lightPos0);
+    //glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spot_direction);
 
     drawShaderWithVertexBufferObject();
 
@@ -858,9 +883,25 @@ void init (void) {
     //glOrtho((-width/2)*zoom, (width/2)*zoom, (-height/2)*zoom, (height/2)*zoom, -10, 10);
     gluPerspective(65, 1, 0.1, 10);
 
-    //glEnable (GL_DEPTH_TEST);
-    //glEnable (GL_LIGHTING);
-    //glEnable (GL_LIGHT0);
+    glEnable (GL_DEPTH_TEST);
+    glEnable (GL_LIGHTING);
+    glEnable (GL_LIGHT1);
+    
+    GLfloat ambientColor[] = {0.0f, 0.0f, 0.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
+    
+    //Light
+    GLfloat lightColor0[] = {0.8f, 0.8f, 0.8f};
+    GLfloat lightPos0[] = {objPos.x + cameraPos.x, objPos.y + cameraPos.y, objPos.z + cameraPos.z, 1.0};
+    glLightfv(GL_LIGHT1, GL_SPECULAR, lightColor0);
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, lightColor0);
+    glLightfv(GL_LIGHT1, GL_POSITION, lightPos0);
+
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 45.0);
+    GLfloat spot_direction[] = { cameraDir.x, cameraDir.y, cameraDir.z };
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spot_direction);
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 1.0);
+    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 2.0);
 }
 
 static void onIdle(){

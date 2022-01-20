@@ -14,7 +14,6 @@ class Fan{
 	private:
 		int pi;
 		int spi;
-		int radialOffset = 290;
 	
 		bool usingBufferOne = true;
 		
@@ -27,6 +26,7 @@ class Fan{
 	
 	
 	public:
+		int radialOffset = 290;
 		char bufferOne[(4*128+8)*radialResolution];
 		char bufferTwo[(4*128+8)*radialResolution];
 	

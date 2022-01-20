@@ -163,7 +163,7 @@ void expandPyramidVertices()
         {
             for (int k=0; k<nCoordsComponents; k++)
             {
-                pve[(i*3+j)*3+k] = pv[pvi[i*3+j]*3+k];
+                pve[(i*3+j)*3+k] = pv[pvi[i*3+j]*3+k]*3.0;
             }
         }
     }
@@ -347,23 +347,11 @@ vector<string> split (const string &s, char delim) {
 // ---------------------------------------------------------------------------
 static void readWorker()
 {
-    char bytes[8];
     while(1){
-        if(serialDataAvail(fd)>=8){
-            for(int i = 0; i < 8; i++){
-                bytes[i] = serialGetchar(fd);
-                printf("0x%x ", bytes[i]);
-            }
-            std::cout<<"\n";
-            
-            
-            memcpy(&thetay, &bytes, sizeof(thetay));
-            thetay = -thetay + 180;
-            memcpy(&thetax, &(bytes[4]), sizeof(thetax));
-            thetax = -thetax;
-            
-            std::cout<<thetax<<" | "<<thetay<<"\n";
-            
+        for (std::string line; std::getline(std::cin, line);) {
+            vector<string> v = split (line, '|');
+            thetay = std::stof(v.at(0));
+            thetax = std::stof(v.at(1));
             glutPostRedisplay();
         }
     }
@@ -509,7 +497,7 @@ static void initShaders()
         std::cerr << infoLog.data() << "\n";
     }
 
-    glUseProgram (0);
+    //glUseProgram (phongProgram);
 }
 
 // ---------------------------------------------------------------------------
@@ -832,8 +820,8 @@ static void onDraw(void)
     GLfloat lightPos0[] = {objPos.x + cameraPos.x, objPos.y + cameraPos.y, objPos.z + cameraPos.z, 1.0};
     GLfloat spot_direction[] = { cameraDir.x, cameraDir.y, cameraDir.z };
     
-    printf("lightPos0: %f %f %f \n", lightPos0[0], lightPos0[1], lightPos0[2]);
-    printf("dir: %f %f %f \n", spot_direction[0], spot_direction[1], spot_direction[2]);
+    //printf("lightPos0: %f %f %f \n", lightPos0[0], lightPos0[1], lightPos0[2]);
+    //printf("dir: %f %f %f \n", spot_direction[0], spot_direction[1], spot_direction[2]);
 
     //glLightfv(GL_LIGHT1, GL_POSITION, lightPos0);
     //glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spot_direction);
